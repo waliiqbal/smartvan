@@ -1,10 +1,11 @@
 /* eslint-disable prettier/prettier */
-import { Body, Controller, Post, Get, Query } from '@nestjs/common';
+import { Body, Controller, Post, Get, Query, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
-
+import { AuthGuard } from '@nestjs/passport';
+import { UseGuards } from '@nestjs/common';
 
 
 @Controller('auth')
@@ -36,10 +37,12 @@ export class AuthController {
     return this.authService.verifyOtp(email, userType, otp);
   }
 
-  @Get('getprofile')
-async getProfile(@Query('token') token: string) {
-  return this.authService.getProfile(token);
-}
+  @UseGuards(AuthGuard('jwt'))
+    @Get('getProfile')
+  async getKids(@Req() req: any) {
+    const { userId, userType } = req.user; // 👈 token se extract hua
+    return this.authService.getProfile(userId, userType);
+  }
  @Post('social-login')
   async socialLogin(@Body() body: any) {
   const { authProvider, token, userType } = body;

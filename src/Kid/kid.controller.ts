@@ -21,4 +21,13 @@ export class KidController {
     const { userId, userType } = req.user; // 👈 user info from JWT
     return this.KidService.addKid(CreateKidDto, userId, userType);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('getKids')
+async getKids(@Req() req: any) {
+  const { userId, userType } = req.user; // 👈 token se extract hua
+  return this.KidService.getKids(userId, userType);
 }
+
+}
+

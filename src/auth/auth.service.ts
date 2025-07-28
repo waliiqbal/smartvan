@@ -13,6 +13,7 @@ import { OtpService } from 'src/user/schema/otp/otp.service';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 
+
 @Injectable()
 export class AuthService {
    private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID); // 👈 Google Client
@@ -67,8 +68,10 @@ async registerUser(registerDto: RegisterDto) {
 
     return {
       message: 'OTP sent successfully to your email/phone',
-      userId: user._id,
-      otp: user.otp
+      data: {
+        userId: user._id,
+        otp: user.otp,
+      },
     };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Registration failed');
@@ -101,9 +104,12 @@ async loginUser(loginData: any) {
 
     return {
       message: 'Login successful',
+      data: {
       token,
       userId: user._id,
       fullname: user.fullname
+    
+      },
     };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Login failed');
@@ -136,8 +142,12 @@ async resendOtp(email: string, userType: string) {
 
     return {
       message: 'New OTP sent successfully to your email',
+      data: {
+      
       userId: user._id,
       otp: user.otp
+    
+      },
     };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Resend OTP failed');
@@ -176,6 +186,7 @@ async verifyOtp(email: string, userType: string, otp: string) {
 
     return {
       message: 'OTP verified successfully',
+      data: {
       token,
       user: {
         _id: user._id,
@@ -185,47 +196,39 @@ async verifyOtp(email: string, userType: string, otp: string) {
         phoneNo: user.phoneNo,
         address: user.address,
       },
+      },
     };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'OTP verification failed');
   }
 }
 
-async getProfile(token: string) {
+async getProfile(userId: string, userType: string) {
   try {
-    if (!token) {
-      throw new UnauthorizedException('Token is required');
-    }
-
-    // ✅ 1. Token ko decode karo
-    const decoded = this.jwtService.verify(token); // throws if invalid or expired
-
-    const userId = decoded.sub;
-    const userType = decoded.userType;
-
     if (!userId || !userType) {
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException('Invalid user credentials');
     }
 
-    // ✅ 2. Model choose karo userType ke base pe
-    const userModel = this.getUserModel(userType); // parentModel or driverModel
+    // ✅ 1. Select correct model based on userType
+    const userModel = this.getUserModel(userType); // 👈 e.g., parentModel or driverModel
 
-    // ✅ 3. DB se user dhoondo
+    // ✅ 2. Find user in DB
     const user = await userModel.findById(userId).select('-password -otp -otpExpiresAt');
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
+    // ✅ 3. Wrap response in data
     return {
       message: 'User profile fetched successfully',
-      user,
+      data: user,
     };
-
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Failed to fetch profile');
   }
 }
+
 
 async socialLogin(authProvider: string, token: string, userType: string) {
   try {
@@ -302,12 +305,14 @@ async socialLogin(authProvider: string, token: string, userType: string) {
 
     return {
       message: 'Social login successful',
+      data: {
       token: jwtToken,
       user: {
         _id: user._id,
         fullname: user.fullname,
         email: user.email,
         userType: user.userType,
+      },
       },
     };
   } catch (error) {
@@ -340,8 +345,12 @@ async forgotPassword(email: string, userType: string) {
     // ✅ Step 6: Response return
     return {
       message: 'OTP sent to your email for password reset',
+      data: {
+      
       userId: user._id,
       otp: user.otp, 
+    
+      },
     };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Forgot password failed');
@@ -411,8 +420,12 @@ async resendOtpForResetPassword(email: string, userType: string) {
 
     return {
       message: 'OTP sent successfully to your email for password reset',
+      data: {
+      
       userId: user._id,
       otp: user.otp,
+  
+      },
     };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Resend OTP for password reset failed');

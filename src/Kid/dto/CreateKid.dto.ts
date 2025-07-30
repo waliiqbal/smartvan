@@ -1,28 +1,28 @@
 /* eslint-disable prettier/prettier */
 // create-kid.dto.ts
 
-import { IsNotEmpty, IsString, IsNumber, IsDate,  } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsDate, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateKidDto {
 
-  @IsString()
+  @IsOptional()
   kidImage?: string; // optional field
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   fullname: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   gender: string;
 
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   age: number;
 
   @IsDate()
   @Type(() => Date)
-  @IsNotEmpty()
+  @IsOptional()
   dob: Date;
 }

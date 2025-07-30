@@ -3,47 +3,45 @@ import {
   IsNotEmpty,
   IsString,
   IsMongoId,
-  IsNumber
+  IsNumber,
+  IsOptional,
 } from 'class-validator';
 
 export class CreateVanDto {
-  @IsNotEmpty()
-  @IsMongoId()
-  driverId: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  venImage: string;
+  venImage?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  cnic: string;
+  cnic?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  vehicleType: string;
+  vehicleType?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
-  venCapacity: number;
+  venCapacity?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  assignRoute: string;
+  assignRoute?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  licenceImageFront: string;
+  licenceImageFront?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  licenceImageBack: string;
+  licenceImageBack?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  carNumber: string;
+  carNumber?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  vehicleCardImage: string;
+  vehicleCardImage?: string;
 }

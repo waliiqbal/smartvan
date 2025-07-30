@@ -7,37 +7,35 @@ export type VanDocument = Van & Document;
 
 @Schema({ timestamps: true })
 export class Van {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  driverId: Types.ObjectId;
+ @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  driverId?: Types.ObjectId;
 
-  @Prop({ required: true })
-  venImage: string;
+  @Prop({ required: false })
+  venImage?: string;
 
-  @Prop({ required: true })
-  cnic: string;
+  @Prop({ required: false })
+  cnic?: string;
 
-  @Prop({ required: true })
-  vehicleType: string;
+  @Prop({ required: false })
+  vehicleType?: string;
 
-  @Prop({ required: true })
-  venCapacity: number;
+  @Prop({ required: false })
+  venCapacity?: number;
 
-  @Prop({ required: true })
-  assignRoute: string;
+  @Prop({ required: false })
+  assignRoute?: string;
 
-  @Prop({ required: true })
-  licenceImageFront: string;
+  @Prop({ required: false })
+  licenceImageFront?: string;
 
-  @Prop({ required: true })
-  licenceImageBack: string;
+  @Prop({ required: false })
+  licenceImageBack?: string;
 
-  @Prop({ required: true })
-  carNumber: string;
+  @Prop({ required: false })
+  carNumber?: string;
 
-  @Prop({ required: true })
-  vehicleCardImage: string;
-
-  // jwtToken intentionally excluded (we won't store it)
+  @Prop({ required: false })
+  vehicleCardImage?: string;
 }
 
 export const VanSchema = SchemaFactory.createForClass(Van);

@@ -8,23 +8,23 @@ export type KidDocument = Kid & Document;
 
 @Schema({ timestamps: true })
 export class Kid {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  parentId: Types.ObjectId;
+ @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+parentId: Types.ObjectId;
 
-  @Prop()
-  kidImage: string;
+@Prop({ required: false })
+kidImage: string;
 
-  @Prop({ required: true })
-  fullname: string;
+@Prop({ required: false })
+fullname: string;
 
-  @Prop({ required: true})
-  gender: string;
+@Prop({ required: false })
+gender: string;
 
-  @Prop({ required: true })
-  age: number;
+@Prop({ required: false })
+age: number;
 
-  @Prop({ required: true })
-  dob: Date;
+@Prop({ required: false })
+dob: Date;
 }
 
 export const KidSchema = SchemaFactory.createForClass(Kid);

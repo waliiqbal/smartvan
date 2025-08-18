@@ -7,7 +7,7 @@ import { AppService } from './app.service';
 
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './user/user.module';
-import { AdminModule } from './admin/ADMIN.module'
+import { AdminModule } from './admin/admin.module'
 
 import { AuthModule } from './auth/auth.module';
 import { VanModule } from './van/van.module';

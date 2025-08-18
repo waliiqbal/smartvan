@@ -72,6 +72,8 @@ export class AuthController {
 ) {
   return this.authService.resetPassword(email, userType, otp, newPassword);
 }
+
+
 }
 
 

@@ -7,11 +7,14 @@ import { AppService } from './app.service';
 
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './user/user.module';
-import { StoreModule } from './store/store.module';
+import { AdminModule } from './admin/ADMIN.module'
 
 import { AuthModule } from './auth/auth.module';
 import { VanModule } from './van/van.module';
 import { KidModule } from './Kid/kid.module';
+import {UploadModule} from "./upload/upload.module"
+import {SchholModule} from "./school/school.module"
+
 
 @Module({
   imports: [
@@ -22,9 +25,11 @@ import { KidModule } from './Kid/kid.module';
     DatabaseModule,
     UsersModule,
     AuthModule,
-    StoreModule,
+    AdminModule,
     VanModule,
-    KidModule
+    KidModule,
+    UploadModule,
+    SchholModule,
 
   ],
   controllers: [AppController],

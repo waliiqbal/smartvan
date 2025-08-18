@@ -9,8 +9,12 @@ export class DatabaseService {
   constructor(
     @InjectModel('Parent') private parentModel: Model<schema.UserDocument>,
     @InjectModel('Driver') private driverModel: Model<schema.UserDocument>,
-    @InjectModel(schema.Store.name)
-    private storeModel: Model<schema.StoreDocument>,
+    @InjectModel(schema.Admin.name)
+    private AdminModel: Model<schema.AdminDocument>,
+     @InjectModel(schema.School.name)
+    private SchoolModel: Model<schema.SchoolDocument>,
+     @InjectModel(schema.Trip.name)
+    private TripModel: Model<schema.TripDocument>,
     @InjectModel(schema.Van.name)
     private VanModel: Model<schema.VanDocument>,
     @InjectModel(schema.Kid.name)
@@ -20,9 +24,11 @@ export class DatabaseService {
     return {
       parentModel: this.parentModel,
       driverModel: this.driverModel,
-      storeModel: this.storeModel,
+      AdminModel: this.AdminModel,
+      SchoolModel: this.SchoolModel,
       VanModel: this.VanModel,
       KidModel: this.KidModel,
+      TripModel: this.TripModel,
         };
   }
 }

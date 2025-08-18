@@ -13,6 +13,11 @@ export class CreateVanDto {
   @IsString()
   venImage?: string;
 
+ @IsOptional()
+ @IsMongoId()
+  schoolId?: string;
+
+
   @IsOptional()
   @IsString()
   cnic?: string;

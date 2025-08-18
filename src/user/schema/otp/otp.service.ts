@@ -38,4 +38,28 @@ export class OtpService {
       throw new Error('Failed to send OTP email');
     }
   }
+
+  async sendTokenLink(toEmail: string, token: string): Promise<void> {
+  try {
+    const link = `http://localhost:3000/set-password?token=${token}`;  // 🔁 Update with actual frontend URL
+
+    const mailOptions = {
+      from: 'farazahmed.fa276@gmail.com',
+      to: toEmail,
+      subject: 'Set Your New Password',
+      text: `Click this link to set your new password: ${link}`,
+      html: `
+        <p>You have requested to set a new password for your account.</p>
+        <p><a href="${link}">Click here to set your password</a></p>
+        <p>This link will expire in <b>30 minutes</b>. If you didn’t request this, you can ignore this email.</p>
+      `,
+    };
+
+    const result = await this.transporter.sendMail(mailOptions);
+    this.logger.log(`✅ Set password link sent to ${toEmail}: ${result.response}`);
+  } catch (error) {
+    this.logger.error(`❌ Failed to send set password link to ${toEmail}`, error);
+    throw new Error('Failed to send set password link');
+  }
+}
 }

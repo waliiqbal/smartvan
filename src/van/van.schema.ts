@@ -10,6 +10,9 @@ export class Van {
  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   driverId?: Types.ObjectId;
 
+   @Prop({ type: Types.ObjectId, ref: 'School', required: false })
+   schoolId: Types.ObjectId;
+
   @Prop({ required: false })
   venImage?: string;
 

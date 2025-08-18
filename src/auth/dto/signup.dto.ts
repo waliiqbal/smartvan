@@ -3,6 +3,7 @@
 
 export class RegisterDto {
   userType: 'parent' | 'driver';
+  schoolId?: string;
   fullname: string;
   email: string;
   phoneNo?: string;

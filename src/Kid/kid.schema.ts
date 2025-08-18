@@ -11,6 +11,13 @@ export class Kid {
  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
 parentId: Types.ObjectId;
 
+
+ @Prop({ type: Types.ObjectId, ref: 'School', required: false })
+schoolId: Types.ObjectId;
+
+ @Prop({ type: Types.ObjectId, ref: 'Van', required: false })
+ vanId: Types.ObjectId;
+
 @Prop({ required: false })
 kidImage: string;
 

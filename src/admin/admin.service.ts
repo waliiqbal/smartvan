@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from "src/database/databaseservice";
 import { OtpService } from 'src/user/schema/otp/otp.service';
+import * as crypto from 'crypto';
 
 import mongoose from 'mongoose';
 
@@ -20,59 +21,23 @@ export class AdminService {
     private readonly jwtService: JwtService
   ) {}
   
-  async createAdminAndSchool(body: any) {
+async createAdminAndSchool(body: any) {
   const { adminInfo, schoolInfo } = body;
 
-  // Step 1: Admin create karo (password optional)
-  const admin = await this.databaseService.repositories.AdminModel.create({
-    ...adminInfo,
-  });
 
-  // Step 2: Token banao
-  const token = this.jwtService.sign(
-    {
-      sub: admin._id,
-      email: admin.email,
-      role: admin.role,
-    },
-    { expiresIn: '30d' } // 30 minutes validity
-  );
+  const randomPassword = crypto.randomBytes(6).toString('hex'); // 12 char ka password
 
-  // Step 3: Call OTP service ka function to send email with link
-  await this.otpService.sendTokenLink(admin.email, token);
 
-  // Step 4: Create school with admin reference
-  await this.databaseService.repositories.SchoolModel.create({
-    ...schoolInfo,
-    admin: admin._id,
-  });
-
-  return {
-    message: 'Admin and school created. Token link sent on email for password setup.',
-    data: {
-    token
-  }
-  };
-}
-
-async setPasswordUsingEmail(email: string, password: string) {
-  // 1️⃣ User check karo
-  const admin = await this.databaseService.repositories.AdminModel.findOne({ email });
-
-  if (!admin) {
-    return { message: 'User not found' };
-  }
+  const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
   
+  const admin = await this.databaseService.repositories.AdminModel.create({
+    ...adminInfo,
+    password: hashedPassword,
+  });
 
-  // 3️⃣ Password hash karo
-  admin.password = await bcrypt.hash(password, 10);
-
-  // 4️⃣ Save karo DB me
-  await admin.save();
-
-  // 5️⃣ Naya JWT generate karo
-  const newToken = this.jwtService.sign(
+ 
+  const token = this.jwtService.sign(
     {
       sub: admin._id,
       email: admin.email,
@@ -81,20 +46,57 @@ async setPasswordUsingEmail(email: string, password: string) {
     { expiresIn: '30d' }
   );
 
-  // 6️⃣ Response
+
+  await this.databaseService.repositories.SchoolModel.create({
+    ...schoolInfo,
+    admin: admin._id,
+  });
+
+ 
+  await this.otpService.sendPassword(admin.email, randomPassword);
+
   return {
-    message: 'Password set successfully',
+    message: 'Admin and school created. Password sent on email.',
     data: {
-      token: newToken,
-      user: {
-        id: admin._id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role
-      }
-    }
+      token,
+      
+    },
   };
 }
+async resendOtpForResetPassword(email: string) {
+  try {
+    // 🔍 Admin model use karo
+    const admin = await this.databaseService.repositories.AdminModel.findOne({ email });
+
+    if (!admin) {
+      throw new UnauthorizedException('Admin not found');
+    }
+
+
+    // 🔑 New OTP generate karo
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // ✍️ Save OTP
+    admin.otp = newOtp;
+    admin.otpExpiresAt = otpExpiresAt;
+    await admin.save();
+
+    // 📧 Send OTP email
+    await this.otpService.sendOtp(admin.email, newOtp);
+
+    return {
+      message: 'OTP sent successfully to your email for password reset',
+      data: {
+        adminId: admin._id,
+        otp: admin.otp, // ⚠️ sirf testing/debug ke liye response me bhejna
+      },
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Resend OTP for password reset failed');
+  }
+}
+
 
 async forgotPasswordService(email: string) {
   // 1️⃣ User check karo
@@ -104,60 +106,65 @@ async forgotPasswordService(email: string) {
     return { message: 'User not found' };
   }
 
-  const token = this.jwtService.sign(
-    {
-      sub: admin._id,
-      email: admin.email,
-      role: admin.role,
-    },
-    { expiresIn: '30d' } 
-  );
+  // 2️⃣ OTP generate karo (6 digit random)
+  const otp = crypto.randomInt(100000, 999999).toString();
 
- 
-  await this.otpService.sendTokenLink(admin.email, token);
+  // 3️⃣ OTP expiry time set karo (5 min baad expire)
+  const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  // 4️⃣ DB me admin ko update karo OTP aur expiry ke sath
+  admin.otp = otp;
+  admin.otpExpiresAt = otpExpiresAt;
+  await admin.save();
+
+  // 5️⃣ Email bhejo OTP
+  await this.otpService.sendOtp(admin.email, otp);
+
   return {
-    message: 'Token link sent on email for password setup.',
+    message: 'OTP sent on email for password reset.',
+    data: {
+      otp, // ⚠️ sirf testing/debug ke liye return karna, production me usually return nahi karte
+    },
   };
 }
 
-async resetPasswordUsingEmail(email: string, password: string) {
-
-   const hashedPassword = await bcrypt.hash(password, 10);
-
-  const updatedAdmin = await this.databaseService.repositories.AdminModel.findOneAndUpdate(
-    { email },                 // 1️⃣ FIND CONDITION → email ke basis pe document dhundo
-    { password: hashedPassword }, // 2️⃣ UPDATE → us document ka `password` field ko `hashedPassword` se replace karo
-    { new: true }              // 3️⃣ OPTIONS → updated document return karo (purana nahi)
-);
-   if (!updatedAdmin) {
-    return { message: 'User not found' };
-  }
-  
-  
-
-  // 5️⃣ Naya JWT generate karo
-  const newToken = this.jwtService.sign(
-    {
-      sub:  updatedAdmin._id,
-      email: updatedAdmin.email,
-      role:  updatedAdmin.role,
-    },
-    { expiresIn: '30d' }
-  );
-
-  // 6️⃣ Response
-  return {
-    message: 'password reset successfully',
-    data: {
-      token: newToken,
-      user: {
-        id:  updatedAdmin._id,
-        name:  updatedAdmin.name,
-        email:  updatedAdmin.email,
-        role:  updatedAdmin.role
-      }
+async resetPassword(email: string, otp: string, newPassword: string) {
+  try {
+    // 🔍 Admin model use karo
+    const admin = await this.databaseService.repositories.AdminModel.findOne({ email });
+    if (!admin) {
+      throw new UnauthorizedException('Admin not found');
     }
-  };
+
+    console.log ("wali", email, otp, newPassword)
+
+    
+   if (admin.otp !== otp.toString()) {
+  console.log("DB OTP:", admin.otp, " Provided OTP:", otp); // Debugging
+  throw new UnauthorizedException('Invalid OTP');
+}
+
+   
+    const now = new Date();
+    if (!admin.otpExpiresAt || now > admin.otpExpiresAt) {
+      throw new UnauthorizedException('OTP has expired');
+    }
+
+   
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    
+    admin.password = hashedPassword;
+    admin.otp = null;
+    admin.otpExpiresAt = null;
+    await admin.save();
+
+    return {
+      message: 'Your password has been changed successfully',
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Password reset failed');
+  }
 }
 
 async loginAdmin(loginData: any) {
@@ -166,7 +173,7 @@ async loginAdmin(loginData: any) {
 
    const admin = await this.databaseService.repositories.AdminModel.findOne({ email });
     if (!admin) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Invalid credentials' );
     }
 
     const isPasswordMatch = await bcrypt.compare(password, admin.password);

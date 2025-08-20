@@ -15,6 +15,13 @@ export class Admin {
   @Prop()
   password: string;
 
+   @Prop()
+  otp: string;
+  
+   @Prop()
+   otpExpiresAt: Date;
+
+
   @Prop()
   age: number;
 

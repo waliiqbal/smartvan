@@ -7,7 +7,8 @@ import {
   Patch,
   Delete,
   Body,
-  Req
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AdminService } from './admin.service'
 import { AuthGuard } from '@nestjs/passport';
@@ -17,20 +18,18 @@ import { UseGuards } from '@nestjs/common';
 @Controller('Admin')
 export class AdminController {
   constructor(private readonly  adminService:  AdminService) {}
-   
-   @Post('create-admin-school')
-  async createAdminAndSchool(@Body() body: any) {
-    return this.adminService.createAdminAndSchool(body);
+  @UseGuards(AuthGuard('jwt'))
+@Post('create-admin-school')
+async createAdminAndSchool(@Req() req, @Body() body: any) {
+  // role check
+  if (req.user.role !== 'superadmin') {
+    throw new UnauthorizedException('Only superadmins can access this API');
   }
 
-    @UseGuards(AuthGuard('jwt'))
-  @Post('set-password')
-  async setPassword(@Req() req, @Body() body: any) {
-    const email = req.user.email; // JWT strategy me jo payload return hota hai, usme email hai
-    const { password } = body;
+  return this.adminService.createAdminAndSchool(body);
+}
 
-    return this.adminService.setPasswordUsingEmail(email, password);
-  }
+    
 
    @UseGuards(AuthGuard('jwt'))
   @Post('forgot-password')
@@ -40,13 +39,21 @@ export class AdminController {
     return this.adminService.forgotPasswordService(email);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Post('resend-otp')
+  async resendotp(@Req() req) {
+    const email = req.user.email; // JWT strategy me jo payload return hota hai, usme email hai
+
+    return this.adminService.resendOtpForResetPassword(email);
+  }
+
    @UseGuards(AuthGuard('jwt'))
   @Post('reset-password')
   async resetPassword(@Req() req, @Body() body: any) {
     const email = req.user.email; // JWT strategy me jo payload return hota hai, usme email hai
-    const { password } = body;
+    const { newPassword, otp } = body;
 
-    return this.adminService. resetPasswordUsingEmail(email, password);
+    return this.adminService.resetPassword(email, otp, newPassword);
   }
 
     @Post('login')

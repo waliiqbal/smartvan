@@ -39,27 +39,34 @@ export class OtpService {
     }
   }
 
-  async sendTokenLink(toEmail: string, token: string): Promise<void> {
+async sendPassword(toEmail: string, password: string): Promise<void> {
   try {
-    const link = `http://localhost:3000/set-password?token=${token}`;  // 🔁 Update with actual frontend URL
-
     const mailOptions = {
       from: 'farazahmed.fa276@gmail.com',
       to: toEmail,
-      subject: 'Set Your New Password',
-      text: `Click this link to set your new password: ${link}`,
+      subject: 'Your Password',
+      text: `Your password is: ${password}
+
+`,
       html: `
-        <p>You have requested to set a new password for your account.</p>
-        <p><a href="${link}">Click here to set your password</a></p>
-        <p>This link will expire in <b>30 minutes</b>. If you didn’t request this, you can ignore this email.</p>
-      `,
+  <div style="font-family: Arial, sans-serif; line-height:1.6; max-width: 560px; margin: 0 auto; padding: 16px; border: 1px solid #eee; border-radius: 8px;">
+    <h2 style="margin: 0 0 12px;">Your Account Password</h2>
+    <p>We’ve created an account for you. Use the password below to sign in.</p>
+    <div style="background:#f7f7f7; padding:12px 16px; border-radius:6px; font-size:16px; letter-spacing:0.5px; display:inline-block;">
+      <strong>${password}</strong>
+    </div>
+    <p style="margin-top:16px;">For your security, <b>log in and change this password if needed</b> from your profile/settings.</p>
+    <p style="color:#666; font-size:12px; margin-top:12px;">If you didn’t expect this email, you can ignore it.</p>
+  </div>
+`,
     };
 
     const result = await this.transporter.sendMail(mailOptions);
-    this.logger.log(`✅ Set password link sent to ${toEmail}: ${result.response}`);
+    this.logger.log(`✅ Temporary password sent to ${toEmail}: ${result.response}`);
   } catch (error) {
-    this.logger.error(`❌ Failed to send set password link to ${toEmail}`, error);
-    throw new Error('Failed to send set password link');
+    this.logger.error(`❌ Failed to send temporary password to ${toEmail}`, error);
+    throw new Error('Failed to send temporary password email');
   }
 }
+
 }

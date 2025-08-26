@@ -45,8 +45,9 @@ export class AuthController {
   }
  @Post('social-login')
   async socialLogin(@Body() body: any) {
-  const { authProvider, token, userType } = body;
-  return this.authService.socialLogin(authProvider, token, userType);
+  const { authProvider, token, userType, userName, email, socialId, userImage } = body;
+  
+  return this.authService.socialLogin(authProvider, token, userType, userName, email, socialId, userImage);
 }
 
  @Post('forgot-password')

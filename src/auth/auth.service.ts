@@ -231,37 +231,11 @@ async getProfile(userId: string, userType: string) {
 }
 
 
-async socialLogin(authProvider: string, token: string, userType: string) {
+async socialLogin(authProvider: string, token: string, userType: string, userName: string, email: string, socialId: string, userImage: string) {
   try {
-    let socialId: string;
-    let email: string;
-    let userName: string;
-
-    // ✅ Step 1: Verify Google Token
-    if (authProvider === 'google') {
-      const ticket = await this.googleClient.verifyIdToken({
-        idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-      const payload = ticket.getPayload();
-      socialId = payload.sub;
-      email = payload.email;
-      userName = payload.name;
+    if(!userType || !socialId){
+       throw new UnauthorizedException('userType and socialId must be given');
     }
-
-    // ✅ Step 2: Verify Facebook Token
-    else if (authProvider === 'facebook') {
-      const fbResponse = await axios.get(
-        `https://graph.facebook.com/me?fields=id,name,email&access_token=${token}`
-      );
-      socialId = fbResponse.data.id;
-      email = fbResponse.data.email;
-      userName = fbResponse.data.name;
-    } else {
-      throw new UnauthorizedException('Unsupported auth provider');
-    }
-
-    // ✅ Step 3: Get correct model by userType
     const model = this.getUserModel(userType);
 
     // ✅ Step 4: Check if already registered with password
@@ -276,10 +250,10 @@ async socialLogin(authProvider: string, token: string, userType: string) {
 
     // ✅ Step 5: Check if social user already exists
     let user = await model.findOne({
-      email,
-      providerId: socialId,
-      authProvider,
+      providerId: socialId
     });
+
+    console.log("eeeeeeeeeeeee", email, socialId, user);
 
     // ✅ Step 6: Create user if not exist
     if (!user) {
@@ -290,6 +264,7 @@ async socialLogin(authProvider: string, token: string, userType: string) {
         authProvider,
         userType,
         isVerified: true,
+        avatar: userImage
       });
 
       await user.save();
@@ -308,12 +283,7 @@ async socialLogin(authProvider: string, token: string, userType: string) {
       message: 'Social login successful',
       data: {
       token: jwtToken,
-      user: {
-        _id: user._id,
-        fullname: user.fullname,
-        email: user.email,
-        userType: user.userType,
-      },
+      user: user
       },
     };
   } catch (error) {

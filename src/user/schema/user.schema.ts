@@ -15,7 +15,13 @@ export class User {
   @Prop({ required: true, unique: true })
   email: string;
 
-  @Prop({ unique: true })
+  @Prop({ required: false, unique: true })
+  providerId: string;
+  
+  @Prop({ required: false  })
+  authProvider: string;
+
+  @Prop()
   phoneNo: string;
 
   @Prop()
@@ -23,6 +29,7 @@ export class User {
 
   @Prop()
   address: string;
+
 
   @Prop()
   lat: number;

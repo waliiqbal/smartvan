@@ -53,7 +53,7 @@ export class User {
   userType: string;
 
   @Prop({ default: null })
-  avatar: string;
+  image: string;
 }
 
 

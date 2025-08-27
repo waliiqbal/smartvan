@@ -12,14 +12,14 @@ export class Kid {
 parentId: Types.ObjectId;
 
 
- @Prop({ type: Types.ObjectId, ref: 'School', required: false })
-schoolId: Types.ObjectId;
-
- @Prop({ type: Types.ObjectId, ref: 'Van', required: false })
- vanId: Types.ObjectId;
-
 @Prop({ required: false })
 kidImage: string;
+
+@Prop({ required: false })
+VanId: string;
+
+@Prop({ required: false })
+schoolId: string;
 
 @Prop({ required: false })
 fullname: string;
@@ -28,10 +28,20 @@ fullname: string;
 gender: string;
 
 @Prop({ required: false })
+grade: string;
+
+@Prop({ required: false })
+status: string;
+
+@Prop({ required: false })
 age: number;
 
 @Prop({ required: false })
 dob: Date;
 }
+
+
+
+
 
 export const KidSchema = SchemaFactory.createForClass(Kid);

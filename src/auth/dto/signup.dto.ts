@@ -11,4 +11,5 @@ export class RegisterDto {
   lat?: number;
   long?: number;
   password?: string; 
+  image?: string
 }

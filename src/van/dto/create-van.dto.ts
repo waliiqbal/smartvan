@@ -14,8 +14,8 @@ export class CreateVanDto {
   venImage?: string;
 
  @IsOptional()
- @IsMongoId()
-  schoolId?: string;
+ @IsString()
+ schoolId?: string;
 
 
   @IsOptional()

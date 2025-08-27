@@ -35,7 +35,7 @@ export class AuthService {
   // ✅ Signup
 async registerUser(registerDto: RegisterDto) {
   try {
-    const { userType, fullname, email, phoneNo, address, password, lat, long, schoolId } = registerDto;
+    const { userType, fullname, email, phoneNo, address, password, lat, long, schoolId, image } = registerDto;
 
     const userModel = this.getUserModel(userType);
 
@@ -57,6 +57,7 @@ async registerUser(registerDto: RegisterDto) {
       address,
       lat,
       long,
+      image,
       schoolId,
       password: hashedPassword,
       otp,

@@ -1,16 +1,15 @@
 /* eslint-disable prettier/prettier */
-// create-kid.dto.ts
-
 import { IsNotEmpty, IsString, IsNumber, IsDate, IsOptional, IsMongoId } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class CreateKidDto {
+export class AddStudentDto {
 
   @IsOptional()
   kidImage?: string; // optional field
-
+ 
+  
   @IsOptional()
-   @IsString()
+  @IsString()
   schoolId?: string;
 
 
@@ -19,7 +18,7 @@ export class CreateKidDto {
   parentId?: string;
 
     @IsOptional()
-   @IsString()
+    @IsString()
      VanId?: string;
 
 
@@ -31,6 +30,16 @@ export class CreateKidDto {
   @IsOptional()
   gender?: string;
 
+   @IsString()
+  @IsOptional()
+  grade?: string;
+
+   @IsString()
+  @IsOptional()
+  status?: string;
+
+
+
   @IsNumber()
   @IsOptional()
   age?: number;
@@ -40,3 +49,5 @@ export class CreateKidDto {
   @IsOptional()
   dob?: Date;
 }
+
+

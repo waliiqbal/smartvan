@@ -6,13 +6,17 @@ import {
   Param,
   Patch,
   Delete,
+  Query,
   Body,
   Req,
   UnauthorizedException,
+
 } from '@nestjs/common';
 import { AdminService } from './admin.service'
 import { AuthGuard } from '@nestjs/passport';
 import { UseGuards } from '@nestjs/common';
+import { AddStudentDto } from './dto/addStudent.dto';
+import { EditStudentDto } from './dto/editStudent.dto';
 
 
 @Controller('Admin')
@@ -72,5 +76,70 @@ async createAdminAndSchool(@Req() req, @Body() body: any) {
 async getAllSchools() {
   return this.adminService.getallschool(); // service ko direct call, kuch pass nahi kar rahe
 }
+@UseGuards(AuthGuard('jwt'))
+@Post('addStudent')
+async addKid(
+  @Body() AddStudentDto : AddStudentDto , // sirf kid ke fields
+  @Body('parentEmail') parentEmail: string, // alag se lo
+  @Req() req: any,
+) {
+  const AdminId = req.user.userId;
+  return this.adminService.addKid(AddStudentDto , AdminId, parentEmail);
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Patch('editStudent')
+async editKid(
+  @Body() EditStudentDto : EditStudentDto , // sirf kid ke fields
+  @Body('KidId') KidId: string, // alag se lo
+  @Req() req: any,
+) {
+  const AdminId = req.user.userId;
+  return this.adminService.editStudent(KidId , AdminId, EditStudentDto );
+}
+
+ @UseGuards(AuthGuard('jwt')) // JWT Auth Guard use
+  @Get("Get-Students")
+  async getstudent(
+    @Req() req: any, // request object, JWT decoded user info milega
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('search') search?: string,
+  ) {
+    // JWT token se AdminId nikal lo
+    const adminId = req.user.userId; // assuming AuthGuard ne req.user me user data daala
+
+    if (!adminId) {
+      throw new UnauthorizedException('Admin not found in token');
+    }
+
+    // page aur limit ko number me convert karo
+    const pageNumber = page ? parseInt(page) : 1;
+    const limitNumber = limit ? parseInt(limit) : 10;
+
+    // service call
+    return this.adminService.getKids(adminId, pageNumber, limitNumber, search);
+
+  
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('removeKids')
+  async removeSchoolFromKids(
+    @Req() req: any,
+    @Body('kidIds') kidIds: string[], // array of kidIds
+  ) {
+    const adminId = req.user.userId;
+
+    if (!adminId) {
+      throw new UnauthorizedException('Admin not found in token');
+    }
+
+    if (!kidIds || !Array.isArray(kidIds) || kidIds.length === 0) {
+      throw new UnauthorizedException('kidIds must be a non-empty array');
+    }
+
+    return this.adminService.removeKids(adminId, kidIds);
+  }
 }
 

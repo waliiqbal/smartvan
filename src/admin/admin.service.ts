@@ -5,6 +5,9 @@ import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from "src/database/databaseservice";
 import { OtpService } from 'src/user/schema/otp/otp.service';
 import * as crypto from 'crypto';
+import { AddStudentDto } from './dto/addStudent.dto';
+import { Types } from 'mongoose';
+import { EditStudentDto } from './dto/editStudent.dto';
 
 import mongoose from 'mongoose';
 
@@ -23,6 +26,15 @@ export class AdminService {
   
 async createAdminAndSchool(body: any) {
   const { adminInfo, schoolInfo } = body;
+
+
+  const existingAdmin = await this.databaseService.repositories.AdminModel.findOne({
+    email: adminInfo.email,
+  });
+
+  if (existingAdmin) {
+    throw new Error("Admin with this email already exists");
+ }
 
 
   const randomPassword = crypto.randomBytes(6).toString('hex'); // 12 char ka password
@@ -238,6 +250,210 @@ async getallschool() {
       data: school,
     }; // DB se direct fetch
   }
+
+  async addKid(AddStudentDto: AddStudentDto, AdminId: string, parentEmail: string) {
+
+const adminObjectId = new Types.ObjectId(AdminId);
+
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  // Step 2: Find parent by email
+  let parent = await this.databaseService.repositories.parentModel.findOne({ email: parentEmail });
+
+  // Step 3: If parent not found, create new parent
+  if (!parent) {
+    const username = parentEmail.split('@')[0]; // email ka @ se pehle wala part
+    parent = new this.databaseService.repositories.parentModel({
+      email: parentEmail,
+      fullname: username,
+      schoolId: school._id,
+    });
+    parent = await parent.save();
+  }
+
+  // Step 4: Create kid with parentId & schoolId
+  const newKid = new this.databaseService.repositories.KidModel({
+    ...AddStudentDto,
+    schoolId: school._id,
+    parentId: parent._id,
+  });
+
+  const savedKid = await newKid.save();
+
+  // Step 5: Return response
+  return {
+    message: 'Kid added successfully',
+    data: savedKid,
+  };
+}
+
+async getKids(AdminId: string, page = 1, limit = 10, search?: string) {
+  const adminObjectId = new Types.ObjectId(AdminId);
+
+  // school find
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException("School not found");
+  }
+
+  // query prepare
+  const query: any = { schoolId: school._id };
+  if (search) {
+    query.fullname = { $regex: search, $options: "i" }; // name search with regex
+  }
+
+  const skip = (page - 1) * limit;
+
+  // kids find
+  const kids = await this.databaseService.repositories.KidModel.find(query)
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const result = [];
+
+  for (const kid of kids) {
+    // parent find
+    const parent = kid.parentId
+      ? await this.databaseService.repositories.parentModel.findById(kid.parentId)
+          .select("-password")
+          .lean()
+      : null;
+
+    // van find (kid.vanId is string)
+    const van = kid.VanId
+      ? await this.databaseService.repositories.VanModel.findOne({ _id: kid.VanId }).lean()
+      : null;
+
+    // driver find (from van.driverId)
+    let driver = null;
+    if (van?.driverId) {
+      driver = await this.databaseService.repositories.driverModel.findById(van.driverId)
+        .select("-password")
+        .lean();
+    }
+
+    // map structure + datatype handilation
+    const mappedKid = {
+      student: {
+        id: kid?._id?.toString() || null,
+        parentId: kid?.parentId?.toString() || null,
+        vanId: kid?.VanId || null,
+        schoolId: kid?.schoolId || null,
+        fullname: kid?.fullname || "",
+        gender: kid?.gender || "",
+        grade: kid?.grade || "",
+        status: kid?.status || "",
+        age: kid?.age ?? null,
+        dob: kid?.dob || null,
+      },
+      parent: {
+        id: parent?._id?.toString() || null,
+        schoolId: parent?.schoolId || null,
+        fullname: parent?.fullname || "",
+        email: parent?.email || "",
+        phoneNo: parent?.phoneNo || "",
+        address: parent?.address || "",
+        image: parent?.image || "",
+      },
+      van: {
+        id: van?._id?.toString() || null,
+        driverId: van?.driverId?.toString() || null,
+        schoolId: van?.schoolId || null,
+        venImage: van?.venImage || "",
+        cnic: van?.cnic || "",
+        vehicleType: van?.vehicleType || "",
+        venCapacity: van?.venCapacity ?? null,
+        assignRoute: van?.assignRoute || "",
+        licenceImageFront: van?.licenceImageFront || "",
+        licenceImageBack: van?.licenceImageBack || "",
+        carNumber: van?.carNumber || "",
+        vehicleCardImage: van?.vehicleCardImage || "",
+      },
+      driver: {
+        id: driver?._id?.toString() || null,
+        schoolId: driver?.schoolId || null,
+        fullname: driver?.fullname || "",
+        email: driver?.email || "",
+        phoneNo: driver?.phoneNo || "",
+        address: driver?.address || "",
+        image: parent?.image || "",
+      },
+    };
+
+    result.push(mappedKid);
+  }
+
+  const total = await this.databaseService.repositories.KidModel.countDocuments(query);
+
+  return {
+    message: "Kids fetched successfully",
+    data: result,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+async editStudent(KidId: string, AdminId: string, editStudentDto: EditStudentDto) {
+  const adminObjectId = new Types.ObjectId(AdminId);
+
+  // Step 1: Find school by admin
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  // Step 2: Find kid by id and schoolId (security check)
+  const kid = await this.databaseService.repositories.KidModel.findOne({
+    _id: KidId,
+    schoolId: school._id,
+  });
+
+  if (!kid) {
+    throw new UnauthorizedException ('Kid not found');
+  }
+
+  // Step 3: Update kid with DTO
+  const updatedKid = await this.databaseService.repositories.KidModel.findByIdAndUpdate(
+    KidId,
+    { $set: editStudentDto },
+    { new: true }, // return updated document
+  );
+
+  return {
+    message: 'Kid updated successfully',
+    data: updatedKid,
+  };
+}
+
+async removeKids(AdminId: string, kidIds: string[]) {
+  const adminObjectId = new Types.ObjectId(AdminId);
+
+  // Step 1: Find school by admin
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  // Step 2: Update each kid whose schoolId matches
+  const result = await this.databaseService.repositories.KidModel.updateMany(
+    { _id: { $in: kidIds }, schoolId: school._id },
+    { $set: { schoolId: null } }
+  );
+
+  return {
+    message: 'Kids remove from School successfully',
+  };
+}
+
 
   
 

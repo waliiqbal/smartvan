@@ -1,14 +1,21 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from "src/database/databaseservice";
 import { CreateVanDto } from './dto/create-van.dto';
-
+import { OtpService } from 'src/user/schema/otp/otp.service';
+import { EditVanByAdminDto } from './dto/editVanByAdmin.dto';
+import { CreateVanByAdminDto } from './dto/createVanByAdmin.dto';
+import { Types } from 'mongoose';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import mongoose from 'mongoose'
 
 @Injectable()
 export class VanService { 
   constructor(
    
     private databaseService: DatabaseService,
+    private  OtpService:  OtpService
 
    
   ) {}
@@ -61,5 +68,202 @@ async getVans(userId: string, userType: string) {
   };
 }
 
+async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
+    const adminObjectId = new Types.ObjectId(adminId);
+
+  
+    const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+    if (!school) {
+      throw new UnauthorizedException('School not found');
+    }
+
+    // Step 2: Check if driver exists by email
+    let driver;
+    if (dto.email) {
+      driver = await this.databaseService.repositories.driverModel.findOne({ email: dto.email });
+    }
+
+    // Step 3: If driver does not exist, create new driver
+    if (!driver && dto.email) {
+     
+      const randomPassword = crypto.randomBytes(6).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      // Send password to driver's email
+      await this.OtpService.sendPassword(dto.email, randomPassword);
+
+      driver = new this.databaseService.repositories.driverModel({
+        fullname: dto.fullname,
+        image: dto.image,
+        email: dto.email,
+        NIC: dto.NIC,
+        phoneNo: dto.phoneNo,
+        password: hashedPassword,
+        schoolId: school._id,
+        isVerified: true,
+      });
+
+      driver = await driver.save();
+    }
+
+    // Step 4: Create van with driverId & schoolId
+    const newVan = new this.databaseService.repositories.VanModel({
+      driverId: driver?._id || null, // null if no driver info provided
+      schoolId: school._id,
+      vehicleType: dto.vehicleType,
+      carNumber: dto.carNumber,
+      condition: dto.condition,
+      venCapacity: dto.venCapacity,
+      deviceId: dto.deviceId,
+      assignRoute: dto.assignRoute,
+    });
+
+    const savedVan = await newVan.save();
+
+    // Step 5: Return response
+    return {
+      message: 'Van added successfully',
+      data: savedVan,
+    };
+  }
+
+   async editVanByAdmin(dto: EditVanByAdminDto, adminId: string) {
+    const adminObjectId = new Types.ObjectId(adminId);
+    const vanObjectId = new Types.ObjectId(dto.vanId);
+     const driverObjectId = new Types.ObjectId(dto.driverId);
+
+
+    // Step 1: Find school by admin
+    const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+    if (!school) {
+      throw new UnauthorizedException('School not found');
+    }
+
+    const schoolId = school._id.toString()
+
+    // Step 2: Find van by vanId and school
+    const van = await this.databaseService.repositories.VanModel.findById({ _id: vanObjectId});
+    if (!van) {
+      throw new BadRequestException('Van not found');
+    }
+
+    // Step 3: Find driver by driverId
+    const driver = await this.databaseService.repositories.driverModel.findById({_id: driverObjectId } );
+    if (!driver) {
+      throw new BadRequestException('Driver not found');
+    }
+
+    const updatedVan = await this.databaseService.repositories.VanModel.findOneAndUpdate(
+  { _id: vanObjectId },
+  {
+    $set: {
+      vehicleType: dto.vehicleType,
+      carNumber: dto.carNumber,
+      condition: dto.condition,
+      venCapacity: dto.venCapacity,
+      deviceId: dto.deviceId,
+      assignRoute: dto.assignRoute,
+    },
+  },
+  { new: true }, // updated document return kare
+);
+
+const updatedDriver = await this.databaseService.repositories.driverModel.findOneAndUpdate(
+  { _id: driverObjectId },
+  {
+    $set: {
+      fullname: dto.fullname,
+      NIC: dto.NIC,
+      phoneNo: dto.phoneNo,
+      email: dto.email,
+      image: dto.image
+    },
+  },
+  { new: true },
+);
+
+return {
+  message: 'Van and Driver updated successfully',
+  data: {
+    van: updatedVan,
+    driver: updatedDriver,
+  },
+};
+}
+
+async getVansByAdmin(AdminId: string, page = 1, limit = 10, search?: string) {
+  const adminObjectId = new Types.ObjectId(AdminId);
+
+  // Step 1: find school
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException("School not found");
+  }
+
+  const skip = (page - 1) * limit;
+
+  // Step 2: aggregation pipeline
+  const pipeline = [
+    {
+      $match: {
+        schoolId: school._id.toString(),
+        ...(search ? { carNumber: { $regex: search, $options: "i" } } : {})
+      }
+    },
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "driverId",
+        foreignField: "_id",
+        as: "driver"
+      }
+    },
+    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        van: {
+          id: { $toString: "$_id" },
+          condition: { $ifNull: ["$condition", ""] },
+          deviceId: { $ifNull: ["$deviceId", ""] },
+          assignRoute: { $ifNull: ["$assignRoute", ""] },
+          vehicleType: { $ifNull: ["$vehicleType", ""] },
+          carNumber: { $ifNull: ["$carNumber", ""] },
+          status: { $ifNull: ["$status", ""] }
+        },
+        driver: {
+          id: { $cond: [{ $ifNull: ["$driver._id", false] }, { $toString: "$driver._id" }, null] },
+          fullname: { $ifNull: ["$driver.fullname", ""] },
+          phoneNo: { $ifNull: ["$driver.phoneNo", ""] }
+        },
+        _id: 0
+      }
+    },
+    { $skip: skip },
+    { $limit: limit }
+  ];
+
+  const vans = await this.databaseService.repositories.VanModel.aggregate(pipeline);
+
+  const total = await this.databaseService.repositories.VanModel.countDocuments({
+    schoolId: school._id.toString(),
+    ...(search ? { carNumber: { $regex: search, $options: "i" } } : {})
+  });
+
+  return {
+    message: "Vans fetched successfully",
+    data: vans,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+}
+
 
   }
+
+  
+
+  

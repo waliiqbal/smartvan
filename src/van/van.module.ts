@@ -2,11 +2,37 @@
 import { Module } from '@nestjs/common';
 import { VanService } from './van.service';
 import { VanController } from './van.controller';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { OtpModule } from 'src/user/schema/otp/otp.module';
 
 
 
 
 @Module({
+  imports: [
+     OtpModule,
+    ConfigModule,
+
+    
+    PassportModule,
+
+  
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '7d' },
+      }),
+    }),
+
+      ],
+
+
+
  
   controllers: [VanController],
   providers: [VanService], 

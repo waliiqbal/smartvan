@@ -17,10 +17,13 @@ export class Van {
   venImage?: string;
 
   @Prop({ required: false })
-  cnic?: string;
+  condition?: string;
 
   @Prop({ required: false })
   vehicleType?: string;
+
+  @Prop({ required: false })
+  deviceId?: string;
 
   @Prop({ required: false })
   venCapacity?: number;
@@ -39,6 +42,9 @@ export class Van {
 
   @Prop({ required: false })
   vehicleCardImage?: string;
+
+ @Prop({ default: 'active' })
+status: string;
 }
 
 export const VanSchema = SchemaFactory.createForClass(Van);

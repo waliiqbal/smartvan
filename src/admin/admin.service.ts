@@ -261,16 +261,30 @@ const adminObjectId = new Types.ObjectId(AdminId);
     throw new UnauthorizedException('School not found');
   }
 
+  
   // Step 2: Find parent by email
   let parent = await this.databaseService.repositories.parentModel.findOne({ email: parentEmail });
 
+
+  
+
   // Step 3: If parent not found, create new parent
   if (!parent) {
-    const username = parentEmail.split('@')[0]; // email ka @ se pehle wala part
+    const username = parentEmail.split('@')[0];
+    
+    const randomPassword = crypto.randomBytes(6).toString('hex'); 
+
+
+  const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+  await this.otpService.sendPassword(parentEmail, randomPassword);
+
     parent = new this.databaseService.repositories.parentModel({
       email: parentEmail,
       fullname: username,
       schoolId: school._id,
+      password: hashedPassword,
+      isVerified: true,
     });
     parent = await parent.save();
   }
@@ -294,111 +308,128 @@ const adminObjectId = new Types.ObjectId(AdminId);
 async getKids(AdminId: string, page = 1, limit = 10, search?: string) {
   const adminObjectId = new Types.ObjectId(AdminId);
 
-  // school find
+  // Step 1: find school
   const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
   if (!school) {
     throw new UnauthorizedException("School not found");
   }
 
-  // query prepare
-  const query: any = { schoolId: school._id };
-  if (search) {
-    query.fullname = { $regex: search, $options: "i" }; // name search with regex
-  }
-
   const skip = (page - 1) * limit;
 
-  // kids find
-  const kids = await this.databaseService.repositories.KidModel.find(query)
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  // Step 2: aggregation pipeline
+  const pipeline = [
+    {
+      $match: {
+        schoolId: school._id.toString(),
+        ...(search ? { fullname: { $regex: search, $options: "i" } } : {})
+      }
+    },
+    {
+      $addFields: {
+        vanObjectId: {
+          $cond: {
+            if: { $and: [{ $ne: ["$VanId", null] }, { $ne: ["$VanId", ""] }] },
+            then: { $toObjectId: "$VanId" },
+            else: null
+          }
+        }
+      }
+    },
+    {
+      $lookup: {
+        from: "parents",
+        localField: "parentId",
+        foreignField: "_id",
+        as: "parent"
+      }
+    },
+    { $unwind: { path: "$parent", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "vans",
+        localField: "vanObjectId",
+        foreignField: "_id",
+        as: "van"
+      }
+    },
+    { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "van.driverId",
+        foreignField: "_id",
+        as: "driver"
+      }
+    },
+    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        student: {
+          id: { $toString: "$_id" },
+          parentId: { $cond: [{ $ifNull: ["$parentId", false] }, { $toString: "$parentId" }, null] },
+          vanId: "$VanId",
+          schoolId: "$schoolId",
+          fullname: { $ifNull: ["$fullname", ""] },
+          gender: { $ifNull: ["$gender", ""] },
+          grade: { $ifNull: ["$grade", ""] },
+          status: { $ifNull: ["$status", ""] },
+          age: { $ifNull: ["$age", null] },
+          dob: { $ifNull: ["$dob", null] }
+        },
+        parent: {
+          id: { $cond: [{ $ifNull: ["$parent._id", false] }, { $toString: "$parent._id" }, null] },
+          schoolId: "$parent.schoolId",
+          fullname: { $ifNull: ["$parent.fullname", ""] },
+          email: { $ifNull: ["$parent.email", ""] },
+          phoneNo: { $ifNull: ["$parent.phoneNo", ""] },
+          address: { $ifNull: ["$parent.address", ""] },
+          image: { $ifNull: ["$parent.image", ""] }
+        },
+        van: {
+          id: { $cond: [{ $ifNull: ["$van._id", false] }, { $toString: "$van._id" }, null] },
+          driverId: { $cond: [{ $ifNull: ["$van.driverId", false] }, { $toString: "$van.driverId" }, null] },
+          schoolId: "$van.schoolId",
+          venImage: { $ifNull: ["$van.venImage", ""] },
+          cnic: { $ifNull: ["$van.cnic", ""] },
+          vehicleType: { $ifNull: ["$van.vehicleType", ""] },
+         
+          assignRoute: { $ifNull: ["$van.assignRoute", ""] },
+         
+          carNumber: { $ifNull: ["$van.carNumber", ""] },
+        
+        },
+        driver: {
+          id: { $cond: [{ $ifNull: ["$driver._id", false] }, { $toString: "$driver._id" }, null] },
+          schoolId: "$driver.schoolId",
+          fullname: { $ifNull: ["$driver.fullname", ""] },
+          email: { $ifNull: ["$driver.email", ""] },
+          phoneNo: { $ifNull: ["$driver.phoneNo", ""] },
+          address: { $ifNull: ["$driver.address", ""] },
+          image: { $ifNull: ["$driver.image", ""] }
+        },
+        _id: 0
+      }
+    },
+    { $skip: skip },
+    { $limit: limit }
+  ];
 
-  const result = [];
+  const kids = await this.databaseService.repositories.KidModel.aggregate(pipeline);
 
-  for (const kid of kids) {
-    // parent find
-    const parent = kid.parentId
-      ? await this.databaseService.repositories.parentModel.findById(kid.parentId)
-          .select("-password")
-          .lean()
-      : null;
-
-    // van find (kid.vanId is string)
-    const van = kid.VanId
-      ? await this.databaseService.repositories.VanModel.findOne({ _id: kid.VanId }).lean()
-      : null;
-
-    // driver find (from van.driverId)
-    let driver = null;
-    if (van?.driverId) {
-      driver = await this.databaseService.repositories.driverModel.findById(van.driverId)
-        .select("-password")
-        .lean();
-    }
-
-    // map structure + datatype handilation
-    const mappedKid = {
-      student: {
-        id: kid?._id?.toString() || null,
-        parentId: kid?.parentId?.toString() || null,
-        vanId: kid?.VanId || null,
-        schoolId: kid?.schoolId || null,
-        fullname: kid?.fullname || "",
-        gender: kid?.gender || "",
-        grade: kid?.grade || "",
-        status: kid?.status || "",
-        age: kid?.age ?? null,
-        dob: kid?.dob || null,
-      },
-      parent: {
-        id: parent?._id?.toString() || null,
-        schoolId: parent?.schoolId || null,
-        fullname: parent?.fullname || "",
-        email: parent?.email || "",
-        phoneNo: parent?.phoneNo || "",
-        address: parent?.address || "",
-        image: parent?.image || "",
-      },
-      van: {
-        id: van?._id?.toString() || null,
-        driverId: van?.driverId?.toString() || null,
-        schoolId: van?.schoolId || null,
-        venImage: van?.venImage || "",
-        cnic: van?.cnic || "",
-        vehicleType: van?.vehicleType || "",
-        venCapacity: van?.venCapacity ?? null,
-        assignRoute: van?.assignRoute || "",
-        licenceImageFront: van?.licenceImageFront || "",
-        licenceImageBack: van?.licenceImageBack || "",
-        carNumber: van?.carNumber || "",
-        vehicleCardImage: van?.vehicleCardImage || "",
-      },
-      driver: {
-        id: driver?._id?.toString() || null,
-        schoolId: driver?.schoolId || null,
-        fullname: driver?.fullname || "",
-        email: driver?.email || "",
-        phoneNo: driver?.phoneNo || "",
-        address: driver?.address || "",
-        image: parent?.image || "",
-      },
-    };
-
-    result.push(mappedKid);
-  }
-
-  const total = await this.databaseService.repositories.KidModel.countDocuments(query);
+  const total = await this.databaseService.repositories.KidModel.countDocuments({
+    schoolId: school._id.toString(),
+    ...(search ? { fullname: { $regex: search, $options: "i" } } : {})
+  });
 
   return {
     message: "Kids fetched successfully",
-    data: result,
+    data: kids,
     pagination: {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
-    },
+      totalPages: Math.ceil(total / limit)
+    }
   };
 }
 

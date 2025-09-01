@@ -24,6 +24,9 @@ export class User {
   @Prop()
   phoneNo: string;
 
+  @Prop({ required: false  })
+  NIC: string;
+
   @Prop()
   alternatePhoneNo: string;
 

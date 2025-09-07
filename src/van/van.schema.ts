@@ -43,7 +43,7 @@ export class Van {
   @Prop({ required: false })
   vehicleCardImage?: string;
 
- @Prop({ default: 'active' })
+ @Prop({required: false, default: 'inactive' })
 status: string;
 }
 

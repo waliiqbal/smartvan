@@ -30,7 +30,11 @@ gender: string;
 @Prop({ required: false })
 grade: string;
 
-@Prop({ required: false })
+@Prop({ required: false, default: "" })
+image: string;
+
+
+@Prop({ required: false, default: "pending" })
 status: string;
 
 @Prop({ required: false })
@@ -39,6 +43,8 @@ age: number;
 @Prop({ required: false })
 dob: Date;
 }
+
+
 
 
 

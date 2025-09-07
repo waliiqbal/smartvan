@@ -233,6 +233,7 @@ async getVansByAdmin(AdminId: string, page = 1, limit = 10, search?: string) {
         driver: {
           id: { $cond: [{ $ifNull: ["$driver._id", false] }, { $toString: "$driver._id" }, null] },
           fullname: { $ifNull: ["$driver.fullname", ""] },
+          image: { $ifNull: ["$driver.image", ""] },
           phoneNo: { $ifNull: ["$driver.phoneNo", ""] }
         },
         _id: 0
@@ -258,6 +259,43 @@ async getVansByAdmin(AdminId: string, page = 1, limit = 10, search?: string) {
       limit,
       totalPages: Math.ceil(total / limit)
     }
+  };
+}
+
+async getVanById(vanId: string) {
+  // 1. Van find karo
+  const van = await this.databaseService.repositories.VanModel.findById(vanId);
+
+  if (!van) {
+    throw new BadRequestException("van not found");
+  }
+
+  // 2. Driver find karo
+  let driver = null;
+  if (van.driverId) {
+    driver = await this.databaseService.repositories.driverModel.findById(van.driverId);
+  }
+
+  // 3. Response return karo
+  return {
+    message: "Van fetched successfully",
+    data: {
+      id: van._id,
+      vehicleType: van.vehicleType || "",
+      condition: van.condition || "",
+      deviceId: van.deviceId || "",
+      numberPlate: van.carNumber || "",
+      capacity: van.venCapacity || 0,
+      route: van.assignRoute || "",
+      status: van.status || "inactive",
+
+      // ✅ driver info direct fields ke saath
+      driverName: driver?.fullname || "",
+      driverPhone: driver?.phoneNo || "",
+      driverCnic: driver?.NIC || "",
+      driverPicture: driver?.image || "",
+      driverId: driver?._id || null,
+    },
   };
 }
 

@@ -34,6 +34,10 @@ export class AddStudentDto {
   @IsOptional()
   grade?: string;
 
+  @IsString()
+  @IsOptional()
+  image?: string;
+
    @IsString()
   @IsOptional()
   status?: string;

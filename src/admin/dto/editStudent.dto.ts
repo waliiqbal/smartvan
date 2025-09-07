@@ -23,6 +23,10 @@ export class EditStudentDto {
   @IsString()
   gender?: string;
 
+   @IsString()
+    @IsOptional()
+    image?: string;
+
   @IsOptional()
   @IsString()
   grade?: string;

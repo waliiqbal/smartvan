@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from "src/database/databaseservice";
@@ -372,6 +372,7 @@ async getKids(AdminId: string, page = 1, limit = 10, search?: string) {
           fullname: { $ifNull: ["$fullname", ""] },
           gender: { $ifNull: ["$gender", ""] },
           grade: { $ifNull: ["$grade", ""] },
+          image: { $ifNull: ["$image", ""] },
           status: { $ifNull: ["$status", ""] },
           age: { $ifNull: ["$age", null] },
           dob: { $ifNull: ["$dob", null] }
@@ -485,6 +486,34 @@ async removeKids(AdminId: string, kidIds: string[]) {
   };
 }
 
+async getKidById(kidId: string) {
+  // 1. Kid find karo
+  const kid = await this.databaseService.repositories.KidModel.findById(kidId);
+
+  if (!kid) {
+    throw new BadRequestException("Kid not found");
+  }
+
+  // 2. Parent find karo using parentId
+  const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
+
+  // 3. Response banao (kid + parent email)
+  return {
+    message: "Kid fetched successfully",
+    data: {
+      id: kid._id,
+      fullname: kid.fullname,
+      age: kid.age,
+      grade: kid.grade,
+      schoolId: kid.schoolId,
+      parentId: kid.parentId,
+      VanId: kid.VanId || null,
+      image: kid.image || "",
+      status: kid.status || "pending",
+      parentEmail: parent ? parent.email : null,  // agar parent mila to email, warna null
+    }
+  };
+}
 
   
 

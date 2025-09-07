@@ -88,7 +88,7 @@ async addKid(
 }
 
 @UseGuards(AuthGuard('jwt'))
-@Patch('editStudent')
+@Post('editStudent')
 async editKid(
   @Body() EditStudentDto : EditStudentDto , // sirf kid ke fields
   @Body('KidId') KidId: string, // alag se lo
@@ -141,5 +141,9 @@ async editKid(
 
     return this.adminService.removeKids(adminId, kidIds);
   }
+  @Get("getStudentById/:id")
+async getKid(@Param("id") id: string) {
+  return this.adminService.getKidById(id);
+}
 }
 

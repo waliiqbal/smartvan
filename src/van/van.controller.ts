@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Body, Controller, Post, Req,Get, Patch, Query, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Post, Req,Get, Patch, Query, BadRequestException, Param } from '@nestjs/common';
 import { VanService } from './van.service';
 import { AuthGuard } from '@nestjs/passport';
 import { UseGuards } from '@nestjs/common';
@@ -77,5 +77,10 @@ console.log(AdminId)
   
   }
 
+    @Get("getVanById/:id")
+  async getVan(@Param("id") id: string) {
+    console.log(id)
+    return this.vanService.getVanById(id);
+  }
 }
 

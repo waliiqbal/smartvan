@@ -18,6 +18,7 @@ import { DatabaseService } from './databaseservice'
        { name: schema.Van.name, schema: schema.VanSchema },
        { name: schema.Kid.name, schema: schema.KidSchema },
         { name: schema.Trip.name, schema: schema.TripSchema },
+         { name: schema.Notification.name, schema: schema.NotificationSchema },
     ]),
   ],
   exports: [MongooseModule, DatabaseService],

@@ -1,11 +1,12 @@
 /* eslint-disable prettier/prettier */
-import { Body, Controller, Post, Req,Get, Patch, Query, BadRequestException, Param } from '@nestjs/common';
+import { Body, Controller, Post, Req,Get, Patch, Query, BadRequestException, Param,  } from '@nestjs/common';
 import { VanService } from './van.service';
 import { AuthGuard } from '@nestjs/passport';
 import { UseGuards } from '@nestjs/common';
 import { CreateVanDto } from './dto/create-van.dto';
 import { CreateVanByAdminDto } from './dto/createVanByAdmin.dto';
 import { EditVanByAdminDto } from './dto/editVanByAdmin.dto';
+import { EditDriverDto } from './dto/editDriver.dto';
 
 
 
@@ -82,5 +83,13 @@ console.log(AdminId)
     console.log(id)
     return this.vanService.getVanById(id);
   }
+@UseGuards(AuthGuard('jwt'))
+@Post('update-profile')
+async updateProfile(@Req() req: any, @Body() editDriverDto: EditDriverDto) {
+  const driverId = req.user.userId;
+  return this.vanService.updateDriver(driverId, editDriverDto);
 }
+
+}
+
 

@@ -2,6 +2,7 @@
 import { Module } from '@nestjs/common';
 import { KidService } from './kid.service';
 import { KidController } from './kid.controller';
+import { FirebaseAdminModule } from 'src/notification/firebase.module';
 
 
 
@@ -11,6 +12,7 @@ import { KidController } from './kid.controller';
   controllers: [KidController],
   providers: [KidService], 
   exports: [KidService], 
+  imports: [FirebaseAdminModule],
 })
 // eslint-disable-next-line prettier/prettier
 export class KidModule {}

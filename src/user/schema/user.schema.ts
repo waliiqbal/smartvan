@@ -57,7 +57,12 @@ export class User {
 
   @Prop({ default: null })
   image: string;
+
+
+  @Prop({required: false })
+  fcmToken: string;
 }
+
 
 
 

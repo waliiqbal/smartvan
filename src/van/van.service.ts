@@ -9,6 +9,7 @@ import { Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import mongoose from 'mongoose'
+import { EditDriverDto } from './dto/editDriver.dto';
 
 @Injectable()
 export class VanService { 
@@ -298,6 +299,27 @@ async getVanById(vanId: string) {
     },
   };
 }
+
+async updateDriver(driverId: string, editDriverDto: EditDriverDto) {
+  const updatedDriver = await this.databaseService.repositories.driverModel.findByIdAndUpdate(
+    driverId,
+    { $set: editDriverDto },
+    { new: true },
+  );
+
+  if (!updatedDriver) {
+    throw new BadRequestException('Driver not found');
+  }
+
+  return {
+    message: 'Driver updated successfully',
+    data: updatedDriver,
+  };
+}
+
+
+
+
 
 
   }

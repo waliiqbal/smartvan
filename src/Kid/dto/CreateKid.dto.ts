@@ -7,7 +7,8 @@ import { Type } from 'class-transformer';
 export class CreateKidDto {
 
   @IsOptional()
-  kidImage?: string; // optional field
+  @IsString()
+  image?: string; // optional field
 
   @IsOptional()
    @IsString()
@@ -26,6 +27,14 @@ export class CreateKidDto {
   @IsString()
   @IsOptional()
   fullname?: string;
+
+    @IsString()
+  @IsOptional()
+  status?: string;
+
+    @IsString()
+  @IsOptional()
+  grade?: string;
 
   @IsString()
   @IsOptional()

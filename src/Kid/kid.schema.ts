@@ -12,8 +12,6 @@ export class Kid {
 parentId: Types.ObjectId;
 
 
-@Prop({ required: false })
-kidImage: string;
 
 @Prop({ required: false })
 VanId: string;
@@ -36,6 +34,9 @@ image: string;
 
 @Prop({ required: false, default: "pending" })
 status: string;
+
+@Prop({ required: false, default: "false" })
+verifiedBySchool: boolean;
 
 @Prop({ required: false })
 age: number;

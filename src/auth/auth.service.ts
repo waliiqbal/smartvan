@@ -82,7 +82,7 @@ async registerUser(registerDto: RegisterDto) {
 
 async loginUser(loginData: any) {
   try {
-    const { userType, email, password } = loginData;
+    const { userType, email, password, fcmToken } = loginData;
 
     const userModel = this.getUserModel(userType);
 
@@ -95,6 +95,20 @@ async loginUser(loginData: any) {
     if (!isPasswordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+        if (fcmToken) {
+      if (!user.fcmToken) {
+        // Agar DB me fcmToken nahi hai to save karo
+        user.fcmToken = fcmToken;
+        await user.save();
+      } else if (user.fcmToken !== fcmToken) {
+        // Agar DB wala different hai to update karo
+        user.fcmToken = fcmToken;
+        await user.save();
+      }
+      // Agar same hai to kuch mat karo
+    }
+
 
     const payload = {
       sub: user._id,

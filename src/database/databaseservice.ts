@@ -19,6 +19,8 @@ export class DatabaseService {
     private VanModel: Model<schema.VanDocument>,
     @InjectModel(schema.Kid.name)
     private KidModel: Model<schema.KidDocument>,
+     @InjectModel(schema.Notification.name)
+    private notificationModel: Model<schema.KidDocument>,
      ) {}
      get repositories() {
     return {
@@ -29,6 +31,7 @@ export class DatabaseService {
       VanModel: this.VanModel,
       KidModel: this.KidModel,
       TripModel: this.TripModel,
+      notificationModel: this.notificationModel,
         };
   }
 }

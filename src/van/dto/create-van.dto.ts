@@ -1,30 +1,29 @@
 /* eslint-disable prettier/prettier */
-import {
-  IsNotEmpty,
-  IsString,
-  IsMongoId,
-  IsNumber,
-  IsOptional,
-} from 'class-validator';
+/* eslint-disable prettier/prettier */
+import { IsOptional, IsString, IsNumber } from 'class-validator';
+
 
 export class CreateVanDto {
 
   @IsOptional()
   @IsString()
-  venImage?: string;
-
- @IsOptional()
- @IsString()
- schoolId?: string;
-
+  schoolId?: string;
 
   @IsOptional()
   @IsString()
-  cnic?: string;
+  venImage?: string;
+
+  @IsOptional()
+  @IsString()
+  condition?: string;
 
   @IsOptional()
   @IsString()
   vehicleType?: string;
+
+  @IsOptional()
+  @IsString()
+  deviceId?: string;
 
   @IsOptional()
   @IsNumber()
@@ -49,4 +48,8 @@ export class CreateVanDto {
   @IsOptional()
   @IsString()
   vehicleCardImage?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string; // default schema me "inactive" hai, lekin DTO me optional rakha
 }

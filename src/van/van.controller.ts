@@ -85,10 +85,28 @@ console.log(AdminId)
   }
 @UseGuards(AuthGuard('jwt'))
 @Post('update-profile')
-async updateProfile(@Req() req: any, @Body() editDriverDto: EditDriverDto) {
-  const driverId = req.user.userId;
-  return this.vanService.updateDriver(driverId, editDriverDto);
+async updateProfile(
+  @Req() req: any,
+  @Body() editDto: EditDriverDto,   
+) {
+  const userId = req.user.userId;       
+  const userType = req.user.userType;   
+
+  return this.vanService.updateProfile(userId, userType, editDto);
 }
+
+@UseGuards(AuthGuard('jwt'))
+@Post('update-van')
+async updateVan(
+  @Req() req: any,
+  @Body() body: any,
+) {
+  const driverId = req.user.userId;
+  const { vanId, ...createVanDto } = body; // 👈 ab flat body handle ho jaayega
+
+  return this.vanService.updateVan(driverId, vanId, createVanDto);
+}
+
 
 }
 

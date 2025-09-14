@@ -300,21 +300,65 @@ async getVanById(vanId: string) {
   };
 }
 
-async updateDriver(driverId: string, editDriverDto: EditDriverDto) {
-  const updatedDriver = await this.databaseService.repositories.driverModel.findByIdAndUpdate(
-    driverId,
-    { $set: editDriverDto },
-    { new: true },
-  );
+async updateProfile(
+  userId: string,
+  userType: 'driver' | 'parent',
+  editDto: EditDriverDto,   // 👈 same DTO dono ke liye
+) {
+  let updatedDoc;
 
-  if (!updatedDriver) {
-    throw new BadRequestException('Driver not found');
+  if (userType === 'driver') {
+    updatedDoc = await this.databaseService.repositories.driverModel.findByIdAndUpdate(
+      userId,
+      { $set: editDto },
+      { new: true },
+    );
+  } else if (userType === 'parent') {
+    updatedDoc = await this.databaseService.repositories.parentModel.findByIdAndUpdate(
+      userId,
+      { $set: editDto },
+      { new: true },
+    );
+  } else {
+    throw new BadRequestException('Invalid user type');
+  }
+
+  if (!updatedDoc) {
+    throw new BadRequestException(`${userType} not found`);
   }
 
   return {
-    message: 'Driver updated successfully',
-    data: updatedDriver,
+    message: `${userType} updated successfully`,
+    data: updatedDoc,
   };
+}
+
+
+async updateVan(driverId: string, vanId: string, createVanDto: CreateVanDto) {
+    // 🔹 Step 1: Driver check
+    const driver = await this.databaseService.repositories.driverModel.findById(driverId);
+    if (!driver) {
+      throw new BadRequestException('Driver not found');
+    }
+
+    // 🔹 Step 2: Van check
+    const van = await this.databaseService.repositories.VanModel.findById(vanId);
+    if (!van) {
+      throw new BadRequestException('Van not found');
+    }
+
+    // 🔹 Step 3: Update van with DTO
+    const updatedVan = await this.databaseService.repositories.VanModel.findByIdAndUpdate(
+      vanId,
+     { $set: { ...createVanDto } }, // 👈 spread use karo
+      { new: true },
+    );
+
+    return {
+      message: 'Van updated successfully',
+      data: updatedVan,
+    };
+  }
 }
 
 
@@ -322,7 +366,7 @@ async updateDriver(driverId: string, editDriverDto: EditDriverDto) {
 
 
 
-  }
+  
 
   
 

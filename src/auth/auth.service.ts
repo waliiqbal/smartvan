@@ -35,37 +35,39 @@ export class AuthService {
   // ✅ Signup
 async registerUser(registerDto: RegisterDto) {
   try {
-    const { userType, fullname, email, phoneNo, address, password, lat, long, schoolId, image } = registerDto;
+    const { email, password, userType } = registerDto;
 
     const userModel = this.getUserModel(userType);
 
+    // Check if user already exists
     const existingUser = await userModel.findOne({ email });
     if (existingUser) {
       throw new UnauthorizedException('User already exists');
     }
 
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
-
-    const user = new userModel({
-      userType,
-      fullname,
-      email,
-      phoneNo,
-      address,
-      lat,
-      long,
-      image,
-      schoolId,
-      password: hashedPassword,
+    // Prepare user data
+    const userData: any = {
+      ...registerDto,
       otp,
       otpExpiresAt,
       isVerified: false,
-    });
+    };
+
+    // Hash password only if provided
+    if (password) {
+      userData.password = await bcrypt.hash(password, 10);
+    }
+
+    // Create new user
+    const user = new userModel(userData);
 
     await user.save();
+
+    // Send OTP
     await this.otpService.sendOtp(email, otp);
 
     return {
@@ -80,6 +82,7 @@ async registerUser(registerDto: RegisterDto) {
   }
 }
 
+
 async loginUser(loginData: any) {
   try {
     const { userType, email, password, fcmToken } = loginData;
@@ -90,6 +93,8 @@ async loginUser(loginData: any) {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+
 
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
@@ -423,6 +428,7 @@ async resendOtpForResetPassword(email: string, userType: string) {
 
 
 
+
   // ✅ Login
 //   async login(loginDto: LoginDto) {
 //   try {
@@ -521,6 +527,87 @@ async resendOtpForResetPassword(email: string, userType: string) {
 //       throw new UnauthorizedException(error.message || 'Social login failed');
 //     }
 //   }
+
+async changePassword(
+  userId: string,
+  userType: string,
+  oldPassword: string,
+  newPassword: string,
+) {
+  try {
+    // 🔍 Model choose karo userType se
+    const model = this.getUserModel(userType);
+
+    // 🔍 User fetch karo userId se
+    const user = await model.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // 🔑 Old password check karo
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      throw new UnauthorizedException('Old password is incorrect');
+    }
+
+    // ✅ Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // ✍️ Save new password
+    user.password = hashedPassword;
+    await user.save();
+
+    return {
+      message: 'Your password has been changed successfully',
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Password change failed');
+  }
+}
+
+async logout(userId: string, userType: string) {
+  try {
+
+    // 🔍 Model choose karo userType se
+    const model = this.getUserModel(userType);
+
+    // 🔍 User fetch karo userId se
+    const user = await model.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // 🔑 FCM token null karo agar set hai
+    if (user.fcmToken) {
+      user.fcmToken = null;
+      await user.save();
+    }
+
+    return { message: 'You have been logged out successfully' };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Logout failed');
+  }
+}
+
+async deleteAccount(userId: string, userType: string) {
+  try {
+    // 🔍 Model choose karo userType se
+    const model = this.getUserModel(userType);
+
+    // 🔍 User dhoondo
+    const user = await model.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // ❌ Delete nahi karna, sirf message return karna
+    return { message: 'Your account has been deleted successfully' };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Account delete failed');
+  }
+}
+
+
  }
 
 

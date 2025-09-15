@@ -6,3 +6,5 @@ export { Kid, KidDocument, KidSchema } from '../Kid/kid.schema';
 export { School, SchoolDocument, SchoolSchema } from '../school/school.schema';
 export { Trip, TripDocument, TripSchema } from '../Trip/Schema/trip.schema';
 export {Notification, NotificationDocument, NotificationSchema } from '../notification/notification.schema'
+export { Report, ReportDocument, ReportSchema } from '../report/report.schema';
+export { FAQ, FAQDocument, FAQSchema } from '../report/faq.schema';

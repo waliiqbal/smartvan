@@ -20,7 +20,12 @@ export class DatabaseService {
     @InjectModel(schema.Kid.name)
     private KidModel: Model<schema.KidDocument>,
      @InjectModel(schema.Notification.name)
-    private notificationModel: Model<schema.KidDocument>,
+    private notificationModel: Model<schema.NotificationDocument>,
+
+     @InjectModel(schema.Report.name)
+    private reportModel: Model<schema.ReportDocument>,
+     @InjectModel(schema.FAQ.name)
+    private FAQModel: Model<schema.FAQDocument>,
      ) {}
      get repositories() {
     return {
@@ -32,6 +37,8 @@ export class DatabaseService {
       KidModel: this.KidModel,
       TripModel: this.TripModel,
       notificationModel: this.notificationModel,
+      reportModel: this.reportModel,
+      FAQModel: this.FAQModel
         };
   }
 }

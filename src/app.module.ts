@@ -15,6 +15,7 @@ import { KidModule } from './Kid/kid.module';
 import {UploadModule} from "./upload/upload.module"
 import {SchholModule} from "./school/school.module"
 import { FirebaseAdminModule } from './notification/firebase.module';
+import { ReportModule } from './report/report.module';
 
 
 @Module({
@@ -31,7 +32,8 @@ import { FirebaseAdminModule } from './notification/firebase.module';
     KidModule,
     UploadModule,
     SchholModule,
-    FirebaseAdminModule
+    FirebaseAdminModule,
+    ReportModule
 
   ],
   controllers: [AppController],

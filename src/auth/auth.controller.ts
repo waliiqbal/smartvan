@@ -74,8 +74,36 @@ export class AuthController {
   return this.authService.resetPassword(email, userType, otp, newPassword);
 }
 
+@UseGuards(AuthGuard('jwt'))
+  @Post('change-password')
+  async changePassword(
+    @Body('oldPassword') oldPassword: string,
+    @Body('newPassword') newPassword: string,
+    @Req() req: any, // ✅ yahan se user object milega
+  ) {
+    const { userId, userType } = req.user; // ✅ destructuring ab yahan karni hai
+    return this.authService.changePassword(userId, userType, oldPassword, newPassword);
+  }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
+  async logout(@Req() req: any) {
+    const { userId, userType } = req.user; // ✅ token se mila
+   
+    return this.authService.logout(userId, userType);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('delete-account')
+  async deleteAccount(@Req() req: any) {
+    const { userId, userType } = req.user; // ✅ token se mila
+    return this.authService.deleteAccount(userId, userType);
+  }
 }
+
+
+
+
 
 
 

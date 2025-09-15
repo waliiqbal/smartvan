@@ -1,51 +1,48 @@
 /* eslint-disable prettier/prettier */
 // create-kid.dto.ts
 
-import { IsNotEmpty, IsString, IsNumber, IsDate, IsOptional, IsMongoId } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsBoolean, IsDate, IsNumber } from 'class-validator';
+
 
 export class CreateKidDto {
 
   @IsOptional()
   @IsString()
-  image?: string; // optional field
+  VanId?: string;
 
   @IsOptional()
-   @IsString()
+  @IsString()
   schoolId?: string;
 
-
   @IsOptional()
- @IsMongoId()
-  parentId?: string;
-
-    @IsOptional()
-   @IsString()
-     VanId?: string;
-
-
   @IsString()
-  @IsOptional()
   fullname?: string;
 
-    @IsString()
   @IsOptional()
-  status?: string;
-
-    @IsString()
-  @IsOptional()
-  grade?: string;
-
   @IsString()
-  @IsOptional()
   gender?: string;
 
-  @IsNumber()
   @IsOptional()
+  @IsString()
+  grade?: string;
+
+  @IsOptional()
+  @IsString()
+  image?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  verifiedBySchool?: boolean;
+
+  @IsOptional()
+  @IsNumber()
   age?: number;
 
-  @IsDate()
-  @Type(() => Date)
   @IsOptional()
+  @IsDate()
   dob?: Date;
 }

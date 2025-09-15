@@ -8,7 +8,7 @@ import { CreateVanByAdminDto } from './dto/createVanByAdmin.dto';
 import { Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import mongoose from 'mongoose'
+
 import { EditDriverDto } from './dto/editDriver.dto';
 
 @Injectable()

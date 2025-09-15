@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { BadGatewayException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadGatewayException, Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from "src/database/databaseservice";
 import { CreateKidDto } from './dto/CreateKid.dto';
 import { Types } from 'mongoose';
@@ -174,5 +174,31 @@ await this.firebaseAdminService.sendToDevice(parent.fcmToken, payload, {
     data: updatedKid,
   };
 }
+
+async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
+    // 🔹 Step 1: Driver check
+    const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+    if (!parent) {
+      throw new BadRequestException('parents not found');
+    }
+
+    // 🔹 Step 2: Van check
+    const kid  = await this.databaseService.repositories.KidModel.findById(kidId);
+    if (!kid) {
+      throw new BadRequestException('kid not found');
+    }
+
+    // 🔹 Step 3: Update van with DTO
+    const updatedKid = await this.databaseService.repositories.KidModel.findByIdAndUpdate(
+      kidId,
+     { $set: { ...createKidDto } }, // 👈 spread use karo
+      { new: true },
+    );
+
+    return {
+      message: 'kid updated successfully',
+      data: updatedKid,
+    };
+  }
 
 }

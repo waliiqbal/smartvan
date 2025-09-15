@@ -46,5 +46,18 @@ async verifyStudentByAdmin(
   const adminId = req.user.userId;
   return this.KidService.verifyStudentByAdmin(kidId, adminId);
 }
+
+@UseGuards(AuthGuard('jwt'))
+@Post('update-kid')
+async updateKid(
+  @Req() req: any,
+  @Body() body: any,
+) {
+  const parentId = req.user.userId;
+  const { kidId, ...CreateKidDto } = body; // 👈 ab flat body handle ho jaayega
+
+  return this.KidService.updateKid(parentId, kidId, CreateKidDto);
+}
+
 }
 

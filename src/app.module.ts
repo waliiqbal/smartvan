@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './user/user.module';
 import { AdminModule } from './admin/admin.module'
+import { EventsModule } from './events/events.module'
 
 import { AuthModule } from './auth/auth.module';
 import { VanModule } from './van/van.module';
@@ -33,6 +34,7 @@ import { ReportModule } from './report/report.module';
     UploadModule,
     SchholModule,
     FirebaseAdminModule,
+    EventsModule,
     ReportModule
 
   ],

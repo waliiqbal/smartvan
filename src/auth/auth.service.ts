@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '../user/schema/user.schema';
 import { Model } from 'mongoose';
@@ -92,6 +92,10 @@ async loginUser(loginData: any) {
     const user = await userModel.findOne({ email });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+       if (user.isDelete == true) {
+      throw new UnauthorizedException('Your account has been deleted. You cannot login.');
     }
 
 
@@ -600,12 +604,19 @@ async deleteAccount(userId: string, userType: string) {
       throw new UnauthorizedException('User not found');
     }
 
+     (user as any).isDelete = true;  // field pehle schema me na ho to bhi add ho jayegi
+    await user.save();              // save karna zaroori hai
+
+
+
+
     // ❌ Delete nahi karna, sirf message return karna
     return { message: 'Your account has been deleted successfully' };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Account delete failed');
   }
 }
+
 
 
  }

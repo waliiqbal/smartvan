@@ -41,15 +41,47 @@ async registerUser(registerDto: RegisterDto) {
 
     // Check if user already exists
     const existingUser = await userModel.findOne({ email });
+
     if (existingUser) {
-      throw new UnauthorizedException('User already exists');
+      if (existingUser.isDelete === true) {
+        // Agar account delete tha → revive karo
+        existingUser.isDelete = false;
+
+        // OTP dobara generate karo
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+        existingUser.otp = otp;
+        existingUser.otpExpiresAt = otpExpiresAt;
+        existingUser.isVerified = false;
+
+        // Password update agar naya diya gaya ho
+        if (password) {
+          existingUser.password = await bcrypt.hash(password, 10);
+        }
+
+        await existingUser.save();
+
+        // OTP send karo
+        await this.otpService.sendOtp(email, existingUser.otp);
+
+        return {
+          message: 'Your account was deleted before, we have reactivated it. OTP sent again.',
+          data: {
+            userId: existingUser._id,
+            otp: existingUser.otp,
+          },
+        };
+      } else {
+        // Agar account delete nahi tha
+        throw new UnauthorizedException('User already exists');
+      }
     }
 
-    // Generate OTP
+    // Naya user banane ka flow
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    // Prepare user data
     const userData: any = {
       ...registerDto,
       otp,
@@ -57,17 +89,13 @@ async registerUser(registerDto: RegisterDto) {
       isVerified: false,
     };
 
-    // Hash password only if provided
     if (password) {
       userData.password = await bcrypt.hash(password, 10);
     }
 
-    // Create new user
     const user = new userModel(userData);
-
     await user.save();
 
-    // Send OTP
     await this.otpService.sendOtp(email, otp);
 
     return {
@@ -81,6 +109,7 @@ async registerUser(registerDto: RegisterDto) {
     throw new UnauthorizedException(error.message || 'Registration failed');
   }
 }
+
 
 
 async loginUser(loginData: any) {
@@ -244,6 +273,10 @@ async getProfile(userId: string, userType: string) {
       throw new UnauthorizedException('User not found');
     }
 
+      if (user.isDelete == true) {
+      throw new UnauthorizedException('Your account is deleted, you cannot view your profile');
+    }
+
     // ✅ 3. Wrap response in data
     return {
       message: 'User profile fetched successfully',
@@ -293,6 +326,13 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
 
       await user.save();
     }
+
+    if (user.isDelete === true) {
+      throw new UnauthorizedException(
+        'Your account is deleted, you cannot login with social login',
+      );
+    }
+
 
     // ✅ Step 7: Generate token
     const payload = {
@@ -604,16 +644,40 @@ async deleteAccount(userId: string, userType: string) {
       throw new UnauthorizedException('User not found');
     }
 
-     (user as any).isDelete = true;  // field pehle schema me na ho to bhi add ho jayegi
-    await user.save();              // save karna zaroori hai
+    if (user.isDelete === false || user.isDelete === undefined) {
+  user.isDelete = true;
+  await user.save();
+};              
 
 
 
 
-    // ❌ Delete nahi karna, sirf message return karna
+   
     return { message: 'Your account has been deleted successfully' };
   } catch (error) {
     throw new UnauthorizedException(error.message || 'Account delete failed');
+  }
+}
+
+async addDeleteReason(userId: string, userType: string, deleteReason: string) {
+  try {
+
+    const model = this.getUserModel(userType);
+
+    // 🔍 User dhoondo
+    const user = await model.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    
+    user.deleteReason = deleteReason;
+
+    await user.save();
+
+    return { message: 'Delete reason saved successfully' };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Failed to save delete reason');
   }
 }
 

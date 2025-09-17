@@ -3,6 +3,7 @@ import { Body, Controller, Post, Patch, Param } from '@nestjs/common';
 import { TripService } from './trip.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { PickStudentDto } from './dto/pick-student.dto';
+import { EndTripDto } from './dto/tripend.dto';
 
 @Controller('trips')
 export class TripController {
@@ -21,5 +22,11 @@ async pickStudent(
 ) {
   return this.tripService.pickStudent(tripId, pickStudentDto);
 }
+
+  @Post('end')
+  async endTrip(@Body() dto: EndTripDto) {
+    return await this.tripService.endTrip(dto);
+  }
+
 }
 

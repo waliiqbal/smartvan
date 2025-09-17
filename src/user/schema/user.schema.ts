@@ -62,6 +62,9 @@ export class User {
   @Prop({required: false })
   fcmToken: string;
 
+    @Prop({required: false })
+  deleteReason: string;
+
     @Prop({default: false })
     isDelete: boolean ;
 }

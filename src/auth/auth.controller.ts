@@ -99,8 +99,35 @@ export class AuthController {
     const { userId, userType } = req.user; // ✅ token se mila
     return this.authService.deleteAccount(userId, userType);
   }
-}
 
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('addDeleteReason')
+  async AddDeleteReason(
+  
+    @Body('deleteReason') deleteReason: string,
+    @Req() req: any, // ✅ yahan se user object milega
+  ) {
+    const { userId, userType } = req.user; // ✅ destructuring ab yahan karni hai
+    return this.authService.addDeleteReason(userId, userType, deleteReason);
+  }
+
+
+
+@Get('issuesForDelete')
+getIssuesForDelete() {
+  return {
+    data: [
+      "Privacy concerns",
+      "Inactivity",
+      "Dissatisfaction with the platform or service",
+      "Lack of interest in the platform or service",
+      "Moving on to a different platform or service",
+      "Inactivity"
+    ]
+  };
+}
+}
 
 
 

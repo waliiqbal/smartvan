@@ -69,6 +69,41 @@ async getVans(userId: string, userType: string) {
   };
 }
 
+async getDriverKids(userId: string, userType: string) {
+  // Step 1: Sirf drivers allowed
+  if (userType !== 'driver') {
+    throw new UnauthorizedException('Only drivers can view their van and kids');
+  }
+
+  // Step 2: Driver validate karo
+  const driver = await this.databaseService.repositories.driverModel.findById(userId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
+
+  // Step 3: Driver ki van nikal lo
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id });
+  if (!van) {
+    throw new BadRequestException('Van not found for this driver');
+  }
+
+  // Step 4: Van ke saare kids nikal lo (sirf _id aur name fields)
+  const kids = await this.databaseService.repositories.KidModel.find(
+    { VanId: van._id.toString() },
+    { _id: 1, fullname: 1 } // projection: sirf id aur name
+  );
+
+  // Step 5: Response
+  return {
+    message: 'Van and kids fetched successfully',
+    data: {
+      vanId: van._id,
+      kids,
+    },
+  };
+}
+
+
 async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
     const adminObjectId = new Types.ObjectId(adminId);
 

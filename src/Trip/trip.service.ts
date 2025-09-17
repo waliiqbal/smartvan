@@ -8,7 +8,7 @@ import { Types } from 'mongoose';
 
 import { CreateTripDto } from './dto/create-trip.dto';
 import { DatabaseService } from "src/database/databaseservice";
-
+import { EndTripDto } from './dto/tripend.dto';
 @Injectable()
 export class TripService {
   constructor(
@@ -65,6 +65,37 @@ async pickStudent(tripId: string, dto: PickStudentDto) {
   if (trip.status === 'start') {
     trip.status = 'ongoing';
   }
+
+  await trip.save();
+  return trip;
+}
+
+async endTrip(dto: EndTripDto) {
+  const { tripId, lat, long, time } = dto;
+
+  const trip = await this.databaseService.repositories.TripModel.findById(tripId);
+  if (!trip) {
+    throw new NotFoundException('Trip not found');
+  }
+
+  // Kids status update
+  trip.kids = trip.kids.map(kid => ({
+    ...kid,
+    status: 'dropped',
+    time: time ? new Date(time) : new Date(),
+    lat,
+    long,
+  }));
+
+  // Trip status update
+  trip.status = 'end';
+
+  // Trip end info
+  trip.tripEnd = {
+    endTime: time ? new Date(time) : new Date(),
+    lat,
+    long,
+  };
 
   await trip.save();
   return trip;

@@ -32,6 +32,12 @@ async getVans(@Req() req: any) {
   return this.vanService.getVans(userId, userType);
 }
 
+ @UseGuards(AuthGuard('jwt'))
+@Get('getKidsByDriver')
+async GetKidsByDriver(@Req() req: any) {
+  const { userId, userType } = req.user;
+  return this.vanService.getDriverKids(userId, userType);
+}
 @UseGuards(AuthGuard('jwt'))
 @Post('addVanByAdmin')
 async addVanByAdmin(

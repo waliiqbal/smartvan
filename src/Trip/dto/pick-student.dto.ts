@@ -1,15 +1,22 @@
 /* eslint-disable prettier/prettier */
-import { IsMongoId, IsNumber, IsOptional } from 'class-validator';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 
 export class PickStudentDto {
-  @IsMongoId()
-  kidId: string;
+  @IsOptional()
+  @IsString()
+  tripId?: string;
 
-  @IsNumber()
-  lat: number;
+  @IsOptional()
+  @IsString()
+  kidId?: string;
 
+  @IsOptional()
   @IsNumber()
-  long: number;
+  lat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  long?: number;
 
   @IsOptional()
   time?: Date; // optional, service me default new Date() set hoga

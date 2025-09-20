@@ -59,5 +59,12 @@ async updateKid(
   return this.KidService.updateKid(parentId, kidId, CreateKidDto);
 }
 
+ @UseGuards(AuthGuard('jwt'))
+  @Get('getActiveTripDetails')
+async getActiveTripDetails(@Req() req: any) {
+  const parentId  = req.user.userId; // 👈 token se extract hua
+  console.log(parentId)
+  return this.KidService.getParentActiveTrips(parentId);
+}
 }
 

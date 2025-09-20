@@ -2,7 +2,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
-
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 
 async function bootstrap() {
@@ -10,7 +10,24 @@ async function bootstrap() {
 
   
 
+
   app.use(cookieParser());
+
+
+  const config = new DocumentBuilder()
+    .setTitle('Qchicken API')
+    .setDescription('Qchicken API')
+    .addBearerAuth(
+      {
+        in: 'Header',
+        scheme: 'Bearer',
+        name: 'Authorization',
+        type: 'http',
+        bearerFormat: 'JWT',
+      },
+      'accessToken',
+    )
+    .build();
 
   const whitelist = [
     'http://localhost:3000',
@@ -28,6 +45,13 @@ async function bootstrap() {
     methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
     allowedHeaders: ['Content-Type','Authorization','X-Requested-With','Accept','Origin'],
     exposedHeaders: ['Content-Length','X-Request-Id'],
+  });
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
   });
 
   await app.listen(3002, '0.0.0.0');

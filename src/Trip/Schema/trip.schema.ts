@@ -1,17 +1,17 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable prettier/prettier */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 
 export type TripDocument = Trip & Document;
 
 @Schema({ timestamps: true })
 export class Trip {
-  @Prop({ type: Types.ObjectId, ref: 'Van', required: true })
-  vanId: Types.ObjectId;
+  @Prop({ type: String, required: true })
+  vanId: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'School', required: true })
-  schoolId: Types.ObjectId;
+  @Prop({ type: String, required: true })
+  schoolId: string;
 
   @Prop({ type: String, enum: ['pick', 'drop'], required: true })
   type: string;
@@ -30,7 +30,7 @@ export class Trip {
   @Prop({
     type: [
       {
-        kidId: { type: Types.ObjectId, ref: 'Kid', required: true },
+        kidId: { type: String, required: true },
         time: { type: Date },
         lat: Number,
         long: Number,
@@ -40,7 +40,7 @@ export class Trip {
     default: [],
   })
   kids: {
-    kidId: Types.ObjectId;
+    kidId: string;
     time?: Date;
     lat?: number;
     long?: number;

@@ -1,83 +1,146 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { PickStudentDto } from './dto/pick-student.dto';
 import mongoose from 'mongoose';
 import { Types } from 'mongoose';
 
 
+
+
 import { CreateTripDto } from './dto/create-trip.dto';
 import { DatabaseService } from "src/database/databaseservice";
 import { EndTripDto } from './dto/tripend.dto';
+import { getLocationDto } from './dto/getLocations';
 @Injectable()
 export class TripService {
   constructor(
    private databaseService: DatabaseService,
   ) {} 
 
-  async startTrip(createTripDto: CreateTripDto) {
+
+
+async startTrip(driverId: string, createTripDto: CreateTripDto) {
+
+  const driverObjectId = new Types.ObjectId(driverId);
+  console.log(driverObjectId)
+  // 🔍 Step 1: Driver fetch karo
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
+
+  // 🔍 Step 2: Van fetch karo
+ const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) {
+    throw new BadRequestException('Van not assigned to this driver');
+  }
+
+  // 🔍 Step 3: Trip create karo
   const newTrip = new this.databaseService.repositories.TripModel({
-    vanId: createTripDto.vanId,
-    schoolId: createTripDto.schoolId,
+    driverId: driverId,
+    vanId: van._id.toString(),
+    schoolId: van.schoolId,
 
     type: createTripDto.type || undefined,
 
     tripStart: {
-      startTime: createTripDto.tripStart?.startTime || new Date(),
-      lat: createTripDto.tripStart?.lat,
-      long: createTripDto.tripStart?.long,
+      startTime: new Date(), // fixed, DTO se nahi lena
+      lat: createTripDto.lat,
+      long: createTripDto.long,
     },
 
-    status: createTripDto.status || 'start',
+    status: 'ongoing',
 
     kids: [],
 
-    // Start trip pe sirf ek location save hogi agar bheji ho
-    locations: createTripDto.locations?.length
+    // lat/long agar aaye hain to ek hi location add karo
+    locations: (createTripDto.lat && createTripDto.long)
       ? [{
-          lat: createTripDto.locations[0].lat,
-          long: createTripDto.locations[0].long,
-          time: createTripDto.locations[0].time || new Date()
+          lat: createTripDto.lat,
+          long: createTripDto.long,
+          time: new Date(), // ab hamesha server se
         }]
       : [],
   });
 
-  return await newTrip.save();
+  // 🔍 Save karo
+  const savedTrip = await newTrip.save();
+
+  return {
+    data: savedTrip.toObject(),
+  };
 }
 
 
-async pickStudent(tripId: string, dto: PickStudentDto) {
-  const trip = await this.databaseService.repositories.TripModel.findById(tripId);
+async pickStudent(driverId, dto: PickStudentDto) {
+
+  const driverObjectId = new Types.ObjectId(driverId);
+  console.log(driverObjectId)
+  // 🔍 Step 1: Driver fetch karo
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
+
+  // 🔍 Step 2: Van fetch karo
+ const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) {
+    throw new BadRequestException('Van not assigned to this driver');
+  }
+  const trip = await this.databaseService.repositories.TripModel.findById(dto.tripId);
   if (!trip) {
     throw new NotFoundException('Trip not found');
   }
 
+ if (trip.vanId !== van._id.toString()) {
+ 
+  throw new BadRequestException("Van does not belong to this trip"); // exception throw
+}
   // Push new kid pickup data
   trip.kids.push({
-   kidId: new  Types.ObjectId(dto.kidId),
+   kidId: dto.kidId,
     lat: dto.lat,
     long: dto.long,
     time: dto.time || new Date(),
     status: 'picked',
   });
 
-  // If trip status is "start", change to "ongoing"
-  if (trip.status === 'start') {
-    trip.status = 'ongoing';
-  }
+
+
 
   await trip.save();
-  return trip;
+   return {
+    data: trip
+  };
 }
 
-async endTrip(dto: EndTripDto) {
+async endTrip(driverId,dto: EndTripDto) {
   const { tripId, lat, long, time } = dto;
+
+  const driverObjectId = new Types.ObjectId(driverId);
+  console.log(driverObjectId)
+  // 🔍 Step 1: Driver fetch karo
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
+
+  // 🔍 Step 2: Van fetch karo
+ const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) {
+    throw new BadRequestException('Van not assigned to this driver');
+  }
+
 
   const trip = await this.databaseService.repositories.TripModel.findById(tripId);
   if (!trip) {
     throw new NotFoundException('Trip not found');
   }
-
+  
+   if (trip.vanId !== van._id.toString()) {
+  throw new BadRequestException("Van does not belong to this trip"); // exception throw
+}
   // Kids status update
   trip.kids = trip.kids.map(kid => ({
     ...kid,
@@ -98,7 +161,47 @@ async endTrip(dto: EndTripDto) {
   };
 
   await trip.save();
-  return trip;
+  return {
+    data: trip
+  };
+}
+
+
+async getLocationByDriver(driverId, dto: getLocationDto) {
+  const { tripId,  } = dto;
+
+  const driverObjectId = new Types.ObjectId(driverId);
+  console.log(driverObjectId)
+  // 🔍 Step 1: Driver fetch karo
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
+
+  // 🔍 Step 2: Van fetch karo
+ const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) {
+    throw new BadRequestException('Van not assigned to this driver');
+  }
+
+
+  const trip = await this.databaseService.repositories.TripModel.findById(tripId);
+  if (!trip) {
+    throw new NotFoundException('Trip not found');
+  }
+  
+   if (trip.vanId !== van._id.toString()) {
+  throw new BadRequestException("Van does not belong to this trip"); // exception throw
+}
+
+// ✅ Sirf required fields return karo
+  return {
+    data: {
+      type: trip.type,
+      status: trip.status,
+      locations: trip.locations,
+    },
+  };
 }
 
 }

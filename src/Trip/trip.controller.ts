@@ -1,32 +1,52 @@
 /* eslint-disable prettier/prettier */
-import { Body, Controller, Post, Patch, Param } from '@nestjs/common';
+import { Body, Controller, Post, Patch, Param, Req } from '@nestjs/common';
 import { TripService } from './trip.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { PickStudentDto } from './dto/pick-student.dto';
 import { EndTripDto } from './dto/tripend.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { UseGuards } from '@nestjs/common';
+import { getLocationDto } from './dto/getLocations';
 
 @Controller('trips')
 export class TripController {
   constructor(private readonly tripService: TripService) {}
 
   // Start trip endpoint
-  @Post('start')
-  async startTrip(@Body() createTripDto: CreateTripDto) {
-    return this.tripService.startTrip(createTripDto);
+  @UseGuards(AuthGuard('jwt'))
+  @Post('startTrip')
+  async startTrip(@Body() createTripDto: CreateTripDto,
+  @Req() req: any,
+) {
+  const driverId = req.user.userId;
+    return this.tripService.startTrip(driverId,createTripDto);
   }
 
-  @Patch(':tripId/pick')
+  @UseGuards(AuthGuard('jwt'))
+  @Post('pickStudent')
 async pickStudent(
-  @Param('tripId') tripId: string,
-  @Body() pickStudentDto: PickStudentDto
+ 
+  @Body() pickStudentDto: PickStudentDto,
+   @Req() req: any,
+  
 ) {
-  return this.tripService.pickStudent(tripId, pickStudentDto);
+
+   const driverId = req.user.userId;
+  return this.tripService.pickStudent( driverId,pickStudentDto);
 }
 
-  @Post('end')
-  async endTrip(@Body() dto: EndTripDto) {
-    return await this.tripService.endTrip(dto);
+  @UseGuards(AuthGuard('jwt'))
+  @Post('endTrip')
+  async endTrip(@Body() dto: EndTripDto,  @Req() req: any,) {
+     const driverId = req.user.userId;
+    return await this.tripService.endTrip(driverId,dto);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Post('getLocation')
+  async getLocationsByDriver(@Body() dto: getLocationDto,  @Req() req: any,) {
+     const driverId = req.user.userId;
+    return await this.tripService.getLocationByDriver(driverId, dto);
+  }
 }
 

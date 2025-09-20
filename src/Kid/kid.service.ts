@@ -9,6 +9,7 @@ import { FirebaseAdminService } from 'src/notification/firebase-admin.service';
 
 
 
+
 @Injectable()
 export class KidService { 
   constructor(
@@ -201,4 +202,87 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
     };
   }
 
+async getParentActiveTrips(parentId: string) {
+  // Step 1: Parent ke kids fetch karo (sirf vanIds)
+  const kids = await this.databaseService.repositories.KidModel.find(
+    { parentId: new Types.ObjectId(parentId) },
+    { VanId: 1 }
+  );
+
+  if (!kids || kids.length === 0) return [];
+
+  const vanIds = kids.map(k => k.VanId);
+  const uniqueVanIds = [...new Set(vanIds)];
+
+  // Step 2: Aggregation Trip → Van → Driver + School
+  const trips = await this.databaseService.repositories.TripModel.aggregate([
+    {
+      $match: {
+        vanId: { $in: uniqueVanIds }, // trip.vanId is string
+        status: "ongoing",
+      },
+    },
+    {
+      $lookup: {
+        from: "vans", // Van collection
+        let: { tripVanId: { $toObjectId: "$vanId" } }, // vanId string -> ObjectId
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$_id", "$$tripVanId"] },
+            },
+          },
+          {
+            $lookup: {
+              from: "drivers",
+              localField: "driverId",
+              foreignField: "_id",
+              as: "driver",
+            },
+          },
+          { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+          {
+            $lookup: {
+              from: "schools",
+              let: { schoolIdStr: "$schoolId" }, // van.schoolId is string
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ["$_id", { $toObjectId: "$$schoolIdStr" }],
+                    },
+                  },
+                },
+                { $project: { contactNumber: 1 } },
+              ],
+              as: "school",
+            },
+          },
+          { $unwind: { path: "$school", preserveNullAndEmptyArrays: true } },
+        ],
+        as: "van",
+      },
+    },
+    { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        tripId: "$_id",
+        startTime: "$tripStart.startTime",
+        status: 1,
+        type: 1,
+        locations: 1,
+        carNumber: "$van.carNumber",
+        assignRoute: "$van.assignRoute",
+        driverFullname: "$van.driver.fullname",
+        driverImage: "$van.driver.image",
+        driverPhoneNo: "$van.driver.phoneNo",
+        schoolContact: "$van.school.contactNumber",
+        _id: 0
+      },
+    },
+  ]);
+
+  return trips;
 }
+}
+

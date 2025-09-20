@@ -363,10 +363,8 @@ async updateVan(driverId: string, vanId: string, createVanDto: CreateVanDto) {
     };
   }
 
-async getDriverKids(userId: string, userType: string, tripId: string) {
-  if (userType !== 'driver') {
-    throw new UnauthorizedException('Only drivers can view their van and kids');
-  }
+async getDriverKids(userId: string,  tripId: string) {
+
 
   // Driver validate
   const driver = await this.databaseService.repositories.driverModel.findById(userId);
@@ -375,9 +373,10 @@ async getDriverKids(userId: string, userType: string, tripId: string) {
   // Driver ki van
   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id });
   if (!van) throw new BadRequestException('Van not found for this driver');
-
-  // Trip fetch
-  const trip = await this.databaseService.repositories.TripModel.findById(tripId);
+console.log("tripId",tripId)
+  const tripObjectId = new Types.ObjectId(tripId);
+  const trip = await this.databaseService.repositories.TripModel.findById(tripObjectId);
+  console.log("gttytv",trip)
   if (!trip || trip.status !== 'ongoing') {
     throw new BadRequestException('Trip not found or not ongoing');
   }

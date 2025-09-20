@@ -38,8 +38,8 @@ async GetKidsByDriver(
   @Req() req: any,
   @Query('tripId') tripId: string,  
 ) {
-  const { userId, userType } = req.user;
-  return this.vanService.getDriverKids(userId, userType, tripId);
+  const  userId   = req.user.userId;
+  return this.vanService.getDriverKids(userId, tripId);
 }
 @UseGuards(AuthGuard('jwt'))
 @Post('addVanByAdmin')

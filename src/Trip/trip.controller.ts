@@ -42,11 +42,12 @@ async pickStudent(
     return await this.tripService.endTrip(driverId,dto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+
   @Get('getLocation')
   async getLocationsByDriver(@Body() dto: getLocationDto,  @Req() req: any,) {
-     const driverId = req.user.userId;
-    return await this.tripService.getLocationByDriver(driverId, dto);
-  }
+ 
+    return await this.tripService.getLocationByDriver( dto);
+  
+}
 }
 

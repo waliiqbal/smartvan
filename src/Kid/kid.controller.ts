@@ -59,12 +59,32 @@ async updateKid(
   return this.KidService.updateKid(parentId, kidId, CreateKidDto);
 }
 
- @UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'))
   @Get('getActiveTripDetails')
-async getActiveTripDetails(@Req() req: any) {
+async getActiveTripDetails( @Req() req: any,
+   ) {
   const parentId  = req.user.userId; // 👈 token se extract hua
   console.log(parentId)
   return this.KidService.getParentActiveTrips(parentId);
 }
+
+ @UseGuards(AuthGuard('jwt'))
+  @Get('getTripHistory')
+async getTripHistory( @Req() req: any,
+    @Query('date') date?: string,  
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+   
+   ) {
+  const parentId  = req.user.userId; // 👈 token se extract hua
+  console.log(parentId)
+   const pageNumber = page ? parseInt(page) : 1;
+    const limitNumber = limit ? parseInt(limit) : 10;
+
+  return this.KidService.getTripHistoryByParent(parentId, date , pageNumber, limitNumber);
+}
+
+
+
 }
 

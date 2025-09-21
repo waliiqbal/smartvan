@@ -363,34 +363,47 @@ async updateVan(driverId: string, vanId: string, createVanDto: CreateVanDto) {
     };
   }
 
-async getDriverKids(userId: string,  tripId: string) {
-
-
-  // Driver validate
+async getDriverKids(
+  userId: string,
+  tripId: string,
+  page: number,
+  limit: number,
+) {
+  // 🔹 Driver validate
   const driver = await this.databaseService.repositories.driverModel.findById(userId);
   if (!driver) throw new UnauthorizedException('Driver not found');
 
-  // Driver ki van
+  // 🔹 Driver ki van
   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id });
   if (!van) throw new BadRequestException('Van not found for this driver');
-console.log("tripId",tripId)
+
+  // 🔹 Trip validate
   const tripObjectId = new Types.ObjectId(tripId);
   const trip = await this.databaseService.repositories.TripModel.findById(tripObjectId);
-  console.log("gttytv",trip)
   if (!trip || trip.status !== 'ongoing') {
     throw new BadRequestException('Trip not found or not ongoing');
   }
 
-  // Van ke kids fetch
+  // 🔹 Pagination calculate
+  const skip = (page - 1) * limit;
+
+  // 🔹 Van ke kids fetch with pagination
   const kids = await this.databaseService.repositories.KidModel.find(
     { VanId: van._id.toString() },
     { _id: 1, fullname: 1, image: 1 }
-  );
+  )
+    .skip(skip)
+    .limit(limit);
 
-  // Trip ke kids ids
+  // 🔹 Total count for pagination
+  const totalKidsInVan = await this.databaseService.repositories.KidModel.countDocuments({
+    VanId: van._id.toString(),
+  });
+
+  // 🔹 Trip ke kids ids
   const tripKidIds = new Set(trip.kids.map((k: any) => k.kidId.toString()));
 
-  // Response kids banao
+  // 🔹 Response kids banao
   const responseKids = kids.map(kid => ({
     _id: kid._id,
     name: kid.fullname,
@@ -398,20 +411,23 @@ console.log("tripId",tripId)
     picked: tripKidIds.has(kid._id.toString())
   }));
 
-  // Counts nikalo
-  const totalKids = responseKids.length;
+  // 🔹 Picked count nikalna (sirf current page ke kids pe)
   const pickedCount = responseKids.filter(k => k.picked).length;
 
   return {
     message: 'Van kids with pickup status fetched successfully',
     data: {
       vanId: van._id,
-      totalKids,
+      totalKids: totalKidsInVan,
       pickedCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalKidsInVan / limit),
       kids: responseKids,
     },
   };
 }
+
 
 
 

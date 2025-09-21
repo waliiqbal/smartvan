@@ -36,10 +36,14 @@ async getVans(@Req() req: any) {
 @Get('getKidsByDriver')
 async GetKidsByDriver(
   @Req() req: any,
-  @Query('tripId') tripId: string,  
+  @Query('tripId') tripId: string,
+   @Query('page') page: string,
+    @Query('limit') limit: string,  
 ) {
   const  userId   = req.user.userId;
-  return this.vanService.getDriverKids(userId, tripId);
+   const pageNumber = page ? parseInt(page) : 1;
+    const limitNumber = limit ? parseInt(limit) : 10;
+  return this.vanService.getDriverKids(userId, tripId, pageNumber, limitNumber );
 }
 @UseGuards(AuthGuard('jwt'))
 @Post('addVanByAdmin')

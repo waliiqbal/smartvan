@@ -167,22 +167,13 @@ async endTrip(driverId,dto: EndTripDto) {
 }
 
 
-async getLocationByDriver(driverId, dto: getLocationDto) {
+async getLocationByDriver( dto: getLocationDto) {
   const { tripId,  } = dto;
 
-  const driverObjectId = new Types.ObjectId(driverId);
-  console.log(driverObjectId)
-  // 🔍 Step 1: Driver fetch karo
-  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
-  if (!driver) {
-    throw new UnauthorizedException('Driver not found');
-  }
 
-  // 🔍 Step 2: Van fetch karo
- const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
-  if (!van) {
-    throw new BadRequestException('Van not assigned to this driver');
-  }
+  // 🔍 Step 1: Driver fetch karo
+
+
 
 
   const trip = await this.databaseService.repositories.TripModel.findById(tripId);
@@ -190,9 +181,7 @@ async getLocationByDriver(driverId, dto: getLocationDto) {
     throw new NotFoundException('Trip not found');
   }
   
-   if (trip.vanId !== van._id.toString()) {
-  throw new BadRequestException("Van does not belong to this trip"); // exception throw
-}
+
 
 // ✅ Sirf required fields return karo
   return {

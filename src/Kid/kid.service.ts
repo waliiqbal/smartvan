@@ -219,7 +219,7 @@ async getParentActiveTrips(parentId: string) {
     {
       $match: {
         vanId: { $in: uniqueVanIds }, // trip.vanId is string
-        status: "ongoing",
+        status: { $ne: "end" }, // 'end' status wali trips ko exclude karo
       },
     },
     {
@@ -282,7 +282,69 @@ async getParentActiveTrips(parentId: string) {
     },
   ]);
 
-  return trips;
-}
+  return {
+    data: trips
+  };
 }
 
+async getTripHistoryByParent(parentId: string,
+  date?: string,
+  page: number = 1,
+  limit: number = 10,
+) {
+  // Step 1: Parent ke kids fetch karo (sirf vanIds)
+  const kids = await this.databaseService.repositories.KidModel.find(
+    { parentId: new Types.ObjectId(parentId) },
+    { VanId: 1 }
+  );
+
+  if (!kids || kids.length === 0) return [];
+
+  const vanIds = kids.map(k => k.VanId);
+  const uniqueVanIds = [...new Set(vanIds)];
+
+  // Step 2: Match condition banao
+  const matchCondition: any = {
+    vanId: { $in: uniqueVanIds },
+    status: "end"
+  };
+
+  if (date) {
+    const inputDate = new Date(date);
+
+    const startOfDay = new Date(inputDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(inputDate.setHours(23, 59, 59, 999));
+
+    matchCondition["updatedAt"] = {
+      $gte: startOfDay,
+      $lte: endOfDay,
+    };
+  }
+
+  // Step 3: Total count for pagination
+  const total = await this.databaseService.repositories.TripModel.countDocuments(
+    matchCondition
+  );
+
+  // Step 4: Trips with pagination
+  const trips = await this.databaseService.repositories.TripModel.find(
+    matchCondition,
+    { "tripStart.startTime": 1, "tripEnd.endTime": 1, status: 1, type: 1 } // 👈 sirf required fields
+  )
+    .sort({ updatedAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+return {
+  data: {
+    total,        // total documents matching condition
+    page,         // current page
+    limit,        // per page
+    totalPages: Math.ceil(total / limit),
+    trips,        // paginated trips
+  }
+};
+
+}
+
+}

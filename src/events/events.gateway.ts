@@ -17,6 +17,7 @@ import { DatabaseService } from 'src/database/databaseservice';
 import { Server } from 'socket.io';
 import * as socketioJwt from 'socketio-jwt';
 import { CustomSocket } from './custom-socket.interface';
+import { Types } from 'mongoose';
 
 @WebSocketGateway({
   cors: {
@@ -41,7 +42,7 @@ afterInit(server: Server) {
   console.log("socket server started");
 
   server.use((socket: any, next) => {
-    let token = socket.handshake.auth?.token;
+    let token = socket.handshake.auth?.token || socket.handshake.query?.token;
     console.log("Raw token:", token);
 
     if (!token) {
@@ -83,7 +84,8 @@ afterInit(server: Server) {
     @MessageBody() data: { tripId: string },
     @ConnectedSocket() socket: CustomSocket,
   ) {
-    if (socket.decoded_token.userType !== 'driver') {
+    console.log();
+    if (socket?.decoded_token?.userType !== 'driver') {
       return;
     }
     const { tripId } = data;
@@ -103,8 +105,25 @@ afterInit(server: Server) {
   ) {
     const { tripId, location } = data;
     console.log('Location update:', location, 'for trip:', tripId);
+   //wali db me update kardo location 
+  
+    
+    const tripObjectId = new Types.ObjectId(tripId);
 
-    // send update to everyone in that room (driver + parents)
+  
+  await this.databaseService.repositories.TripModel.findByIdAndUpdate(
+    tripObjectId,
+    {
+      $push: {
+        locations: {
+          lat: location.lat,
+          long: location.long,
+          time: new Date(), // 👈 apne taraf se current time daalna
+        },
+      },
+    },
+    { new: true }
+  );
     this.server.to(tripId).emit('locationUpdated', {
       userId: socket.decoded_token.userId,
       location,

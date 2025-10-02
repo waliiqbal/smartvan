@@ -17,11 +17,15 @@ import { AuthGuard } from '@nestjs/passport';
 import { UseGuards } from '@nestjs/common';
 import { AddStudentDto } from './dto/addStudent.dto';
 import { EditStudentDto } from './dto/editStudent.dto';
+import { KidService } from 'src/Kid/kid.service';
 
 
 @Controller('Admin')
 export class AdminController {
-  constructor(private readonly  adminService:  AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly kidService: KidService,   // 👈 inject KidService here
+  ) {}
   @UseGuards(AuthGuard('jwt'))
 @Post('create-admin-school')
 async createAdminAndSchool(@Req() req, @Body() body: any) {
@@ -35,11 +39,9 @@ async createAdminAndSchool(@Req() req, @Body() body: any) {
 
     
 
-   @UseGuards(AuthGuard('jwt'))
+ 
   @Post('forgot-password')
-  async forgotPassword(@Req() req) {
-    const email = req.user.email; // JWT strategy me jo payload return hota hai, usme email hai
-
+  async forgotPassword(@Body('email') email: string) {
     return this.adminService.forgotPasswordService(email);
   }
 
@@ -51,11 +53,11 @@ async createAdminAndSchool(@Req() req, @Body() body: any) {
     return this.adminService.resendOtpForResetPassword(email);
   }
 
-   @UseGuards(AuthGuard('jwt'))
+ 
   @Post('reset-password')
   async resetPassword(@Req() req, @Body() body: any) {
-    const email = req.user.email; // JWT strategy me jo payload return hota hai, usme email hai
-    const { newPassword, otp } = body;
+    // JWT strategy me jo payload return hota hai, usme email hai
+    const { email, otp, newPassword } = body;
 
     return this.adminService.resetPassword(email, otp, newPassword);
   }
@@ -124,7 +126,7 @@ async editKid(
   }
 
   @UseGuards(AuthGuard('jwt'))
-  @Patch('removeKids')
+  @Patch('removeStudents')
   async removeSchoolFromKids(
     @Req() req: any,
     @Body('kidIds') kidIds: string[], // array of kidIds
@@ -145,5 +147,17 @@ async editKid(
 async getKid(@Param("id") id: string) {
   return this.adminService.getKidById(id);
 }
+
+@UseGuards(AuthGuard('jwt'))
+@Post('assignVanToStudent')
+async assignVanToStudent(
+  @Body('kidId') kidId: string,
+  @Body('vanId') vanId: string,
+  @Req() req: any,
+) {
+  const adminId = req.user.userId;
+  return this.kidService.assignVanToStudent(kidId, vanId, adminId);
+}
+
 }
 

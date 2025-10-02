@@ -132,10 +132,20 @@ async forgotPasswordService(email: string) {
   // 5️⃣ Email bhejo OTP
   await this.otpService.sendOtp(admin.email, otp);
 
+    const newToken = this.jwtService.sign(
+    {
+      sub: admin._id,
+      email: admin.email,
+      role: admin.role,
+    },
+    { expiresIn: '30d' }
+  );
+
   return {
     message: 'OTP sent on email for password reset.',
     data: {
-      otp, // ⚠️ sirf testing/debug ke liye return karna, production me usually return nahi karte
+      otp,
+      token: newToken, // ⚠️ sirf testing/debug ke liye return karna, production me usually return nahi karte
     },
   };
 }
@@ -496,6 +506,11 @@ async getKidById(kidId: string) {
 
   // 2. Parent find karo using parentId
   const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
+  const van = await this.databaseService.repositories.VanModel.findById(kid.VanId);
+
+
+
+
 
   // 3. Response banao (kid + parent email)
   return {
@@ -510,7 +525,10 @@ async getKidById(kidId: string) {
       VanId: kid.VanId || null,
       image: kid.image || "",
       status: kid.status || "pending",
-      parentEmail: parent ? parent.email : null,  // agar parent mila to email, warna null
+      parentEmail: parent ? parent.email : null,
+      parentName: parent? parent.fullname : null , // agar parent mila to email, warna null
+      vehicleType: van ? van.vehicleType : null,
+      route: van ? van.assignRoute : null,
     }
   };
 }

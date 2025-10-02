@@ -7,6 +7,7 @@ import { PassportModule } from '@nestjs/passport';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OtpModule } from 'src/user/schema/otp/otp.module';
+import { KidModule } from 'src/Kid/kid.module';
 
 
 
@@ -15,6 +16,7 @@ import { OtpModule } from 'src/user/schema/otp/otp.module';
   imports: [
      OtpModule,
     ConfigModule,
+    KidModule,
 
     
     PassportModule,
@@ -34,6 +36,7 @@ import { OtpModule } from 'src/user/schema/otp/otp.module';
   controllers: [AdminController],
   providers: [AdminService ], 
   exports: [AdminService ], 
+   
 })
 
 export class AdminModule {}

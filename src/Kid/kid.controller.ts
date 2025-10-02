@@ -26,16 +26,6 @@ async getKids(@Req() req: any) {
   return this.KidService.getKids(userId, userType);
 }
 
-@UseGuards(AuthGuard('jwt'))
-@Post('assignVanToStudent')
-async assignVanToStudent(
-  @Body('kidId') kidId: string,
-  @Body('vanId') vanId: string,
-  @Req() req: any,
-) {
-  const adminId = req.user.userId;
-  return this.KidService.assignVanToStudent(kidId, vanId, adminId);
-}
 
 @UseGuards(AuthGuard('jwt'))
 @Post('verifyStudentByAdmin')

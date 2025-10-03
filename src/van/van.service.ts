@@ -387,13 +387,33 @@ async getDriverKids(
   // 🔹 Pagination calculate
   const skip = (page - 1) * limit;
 
-  // 🔹 Van ke kids fetch with pagination
-  const kids = await this.databaseService.repositories.KidModel.find(
-    { VanId: van._id.toString() },
-    { _id: 1, fullname: 1, image: 1 }
-  )
-    .skip(skip)
-    .limit(limit);
+  // 🔹 Kids fetch with parent lookup
+  const kids = await this.databaseService.repositories.KidModel.aggregate([
+    {
+      $match: { VanId: van._id.toString() }
+    },
+    {
+      $lookup: {
+        from: "parents",         // Parent collection ka naam (schema check karke correct karo)
+        localField: "parentId",  // KidModel ka field jisme parentId save hai
+        foreignField: "_id",     // ParentModel ka _id
+        as: "parent"
+      }
+    },
+    { $unwind: { path: "$parent", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        _id: 1,
+        fullname: 1,
+        image: 1,
+        "parent.address": 1,
+        "parent.phoneNo": 1,
+        "parent.alternatePhoneNo": 1
+      }
+    },
+    { $skip: skip },
+    { $limit: limit }
+  ]);
 
   // 🔹 Total count for pagination
   const totalKidsInVan = await this.databaseService.repositories.KidModel.countDocuments({
@@ -408,14 +428,19 @@ async getDriverKids(
     _id: kid._id,
     name: kid.fullname,
     image: kid.image,
-    picked: tripKidIds.has(kid._id.toString())
+    picked: tripKidIds.has(kid._id.toString()),
+    parent: kid.parent ? {
+      address: kid.parent.address,
+      phone: kid.parent.phoneNo,
+      alternatePhone: kid.parent.alternatePhoneNo,
+    } : null,
   }));
 
-  // 🔹 Picked count nikalna (sirf current page ke kids pe)
+  // 🔹 Picked count (sirf current page ke kids pe)
   const pickedCount = responseKids.filter(k => k.picked).length;
 
   return {
-    message: 'Van kids with pickup status fetched successfully',
+    message: 'Van kids with parent info and pickup status fetched successfully',
     data: {
       vanId: van._id,
       totalKids: totalKidsInVan,
@@ -427,6 +452,7 @@ async getDriverKids(
     },
   };
 }
+
 
 
 

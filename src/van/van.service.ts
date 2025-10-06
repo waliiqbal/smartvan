@@ -81,38 +81,9 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
       throw new UnauthorizedException('School not found');
     }
 
-    // Step 2: Check if driver exists by email
-    let driver;
-    if (dto.email) {
-      driver = await this.databaseService.repositories.driverModel.findOne({ email: dto.email });
-    }
-
-    // Step 3: If driver does not exist, create new driver
-    if (!driver && dto.email) {
-     
-      const randomPassword = crypto.randomBytes(6).toString('hex');
-      const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
-      // Send password to driver's email
-      await this.OtpService.sendPassword(dto.email, randomPassword);
-
-      driver = new this.databaseService.repositories.driverModel({
-        fullname: dto.fullname,
-        image: dto.image,
-        email: dto.email,
-        NIC: dto.NIC,
-        phoneNo: dto.phoneNo,
-        password: hashedPassword,
-        schoolId: school._id,
-        isVerified: true,
-      });
-
-      driver = await driver.save();
-    }
-
-    // Step 4: Create van with driverId & schoolId
+ 
     const newVan = new this.databaseService.repositories.VanModel({
-      driverId: driver?._id || null, // null if no driver info provided
+      
       schoolId: school._id,
       vehicleType: dto.vehicleType,
       carNumber: dto.carNumber,
@@ -152,10 +123,10 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
     }
 
     // Step 3: Find driver by driverId
-    const driver = await this.databaseService.repositories.driverModel.findById({_id: driverObjectId } );
-    if (!driver) {
-      throw new BadRequestException('Driver not found');
-    }
+    // const driver = await this.databaseService.repositories.driverModel.findById({_id: driverObjectId } );
+    // if (!driver) {
+    //   throw new BadRequestException('Driver not found');
+    // }
 
     const updatedVan = await this.databaseService.repositories.VanModel.findOneAndUpdate(
   { _id: vanObjectId },
@@ -172,25 +143,25 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
   { new: true }, // updated document return kare
 );
 
-const updatedDriver = await this.databaseService.repositories.driverModel.findOneAndUpdate(
-  { _id: driverObjectId },
-  {
-    $set: {
-      fullname: dto.fullname,
-      NIC: dto.NIC,
-      phoneNo: dto.phoneNo,
-      email: dto.email,
-      image: dto.image
-    },
-  },
-  { new: true },
-);
+// const updatedDriver = await this.databaseService.repositories.driverModel.findOneAndUpdate(
+//   { _id: driverObjectId },
+//   {
+//     $set: {
+//       fullname: dto.fullname,
+//       NIC: dto.NIC,
+//       phoneNo: dto.phoneNo,
+//       email: dto.email,
+//       image: dto.image
+//     },
+//   },
+//   { new: true },
+// );
 
 return {
   message: 'Van and Driver updated successfully',
   data: {
     van: updatedVan,
-    driver: updatedDriver,
+    // driver: updatedDriver,
   },
 };
 }
@@ -452,6 +423,7 @@ async getDriverKids(
     },
   };
 }
+
 
 
 

@@ -4,29 +4,10 @@ import { IsOptional, IsString, IsNumber } from 'class-validator';
 export class EditVanByAdminDto {
   @IsString()
   vanId: string;
-
-  @IsString()
-  driverId: string;
-
+  
   @IsOptional()
   @IsString()
-  fullname?: string;
-
-  @IsOptional()
-  @IsString()
-  image?: string;
-
-  @IsOptional()
-  @IsString()
-  NIC?: string;
-
-  @IsOptional()
-  @IsString()
-  phoneNo?: string;
-
-  @IsOptional()
-  @IsString()
-  email?: string;
+  driverId?: string;
 
   @IsOptional()
   @IsString()

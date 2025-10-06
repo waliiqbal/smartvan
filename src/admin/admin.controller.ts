@@ -159,5 +159,14 @@ async assignVanToStudent(
   return this.kidService.assignVanToStudent(kidId, vanId, adminId);
 }
 
+@UseGuards(AuthGuard('jwt'))
+@Get("Get-Vans-By-SchoolAdmin")
+async getVansBySchoolAdmin(@Req() req: any) {
+  const adminId = req.user.userId;
+  if (!adminId) throw new UnauthorizedException("Admin not found in token");
+
+  return this.adminService.getVansBySchoolAdmin(adminId);
+}
+
 }
 

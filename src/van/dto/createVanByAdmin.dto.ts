@@ -2,26 +2,7 @@
 import { IsOptional, IsString, IsNumber } from 'class-validator';
 
 export class CreateVanByAdminDto {
-  // Driver Details
-  @IsOptional()
-  @IsString()
-  fullname?: string;
   
-  @IsOptional()
-  @IsString()
-  image?: string; // Full Name of the driver
-
-  @IsOptional()
-  @IsString()
-  NIC?: string;         // Driver's NIC
-
-  @IsOptional()
-  @IsString()
-  phoneNo?: string; 
-  
-   @IsOptional()
-  @IsString()
-  email?: string; 
 
   // Vehicle Details
   @IsOptional()

@@ -533,6 +533,25 @@ async getKidById(kidId: string) {
   };
 }
 
-  
+  async getVansBySchoolAdmin(adminId: string) {
+  const adminObjectId = new Types.ObjectId(adminId);
+
+  // Step 1: find school
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException("School not found");
+  }
+
+  // Step 2: fetch all vans of this school (full document)
+  const vans = await this.databaseService.repositories.VanModel.find({
+    schoolId: school._id.toString()
+  });
+
+  return {
+    message: "Vans fetched successfully",
+    data: vans
+  };
+}
+
 
 }

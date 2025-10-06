@@ -7,7 +7,7 @@ export type VanDocument = Van & Document;
 
 @Schema({ timestamps: true })
 export class Van {
- @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+ @Prop({ type: Types.ObjectId, ref: 'User', required: false })
   driverId?: Types.ObjectId;
 
   @Prop({ required: false })

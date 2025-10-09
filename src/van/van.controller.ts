@@ -120,8 +120,35 @@ async updateVan(
   return this.vanService.updateVan(driverId, vanId, createVanDto);
 }
 
+@UseGuards(AuthGuard('jwt')) // ye guard token verify karega
+  @Post('uploadDocuments')
+  async updateVanDocuments(@Body() body: any, @Req() req: any) {
+   
+    const driverId = req.user?.id; 
 
+    return this.vanService.uploadDocument(body, driverId);
+  }
 
+@UseGuards(AuthGuard('jwt'))
+@Get('getDriverDocuments')
+async getDriverDocuments(@Req() req: any) {
+  const driverId = req.user.userId;
+  return this.vanService.getDriverDocuments(driverId);
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Get('getVehicleType')
+async getVehicleType(@Req() req: any) {
+  const driverId = req.user.userId;
+  return this.vanService.getVehicleType(driverId);
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Post('deleteVanByDriver')
+async deleteVanByDriver(@Req() req: any) {
+  const driverId = req.user.userId;
+  return this.vanService.deleteVan(driverId);
+}
 }
 
 

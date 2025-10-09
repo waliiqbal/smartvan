@@ -24,6 +24,10 @@ export class DatabaseService {
 
      @InjectModel(schema.Report.name)
     private reportModel: Model<schema.ReportDocument>,
+
+    @InjectModel(schema.Route.name)
+    private routeModel: Model<schema.RouteDocument>,
+
      @InjectModel(schema.FAQ.name)
     private FAQModel: Model<schema.FAQDocument>,
      ) {}
@@ -38,7 +42,8 @@ export class DatabaseService {
       TripModel: this.TripModel,
       notificationModel: this.notificationModel,
       reportModel: this.reportModel,
-      FAQModel: this.FAQModel
+      FAQModel: this.FAQModel,
+      routeModel: this.routeModel
         };
   }
 }

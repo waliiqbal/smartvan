@@ -47,7 +47,11 @@ export class CreateVanDto {
 
   @IsOptional()
   @IsString()
-  vehicleCardImage?: string;
+  vehicleCardImageFront?: string;
+
+  @IsOptional()
+  @IsString()
+  vehicleCardImageBack?: string;
 
   @IsOptional()
   @IsString()

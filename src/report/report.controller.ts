@@ -16,6 +16,13 @@ export class ReportController {
     const parentId = req.user.userId; // token se parent ID
     return this.reportService.createReport(body, parentId);
   }
+
+    @UseGuards(AuthGuard('jwt')) // Token guard
+  @Post("addReportByDriver")
+  async createReportByDriver(@Body() body: any, @Req() req: any) {
+    const driverId = req.user.userId; // token se parent ID
+    return this.reportService.createDriverReport(body, driverId);
+  }
 @Get('issue-types')
   getIssueTypes() {
     return {
@@ -24,6 +31,20 @@ export class ReportController {
         'Child not picked/dropped',
         'Route Issue',
         'Driver Behavior',
+        'Tracking Not Working',
+        'Other',
+      ],
+    };
+  }
+
+  @Get('issue-types-Driver')
+  getIssueTypesforDriver() {
+    return {
+      data: [
+        'Vehicle Issue',
+        'Running Late',
+        'Passenger No-Show',
+        'Emergency',
         'Tracking Not Working',
         'Other',
       ],

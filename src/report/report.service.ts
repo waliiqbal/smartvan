@@ -61,6 +61,42 @@ const kid = await this.databaseService.repositories.KidModel.findOne({
   };
 }
 
+async createDriverReport(body: any, driverId: string) {
+  if (!driverId) {
+    throw new UnauthorizedException('Invalid driver token');
+  }
+
+  const { issueType, description, image } = body;
+
+  if (!issueType || !description) {
+    throw new BadRequestException('Issue type and description are required');
+  }
+
+  // Step 1: Driver validate karo
+  const driver = await this.databaseService.repositories.driverModel.findById(
+    new Types.ObjectId(driverId)
+  );
+
+  if (!driver) {
+    throw new BadRequestException('Driver not found');
+  }
+
+  // Step 2: Report save karo (driver ke related)
+  const report = new this.databaseService.repositories.reportModel({
+    driverId: driver._id.toString(),
+    issueType,
+    description,
+    image,
+    createdAt: new Date(), // ab dateOfIncident ki jagah current date
+  });
+
+  await report.save();
+
+  return {
+    message: 'Report submitted successfully by driver',
+    data: report,
+  };
+}
 async addFaq(data: any) {
     // check if already exists (sirf ek hi document chahiye)
     const existing = await this.databaseService.repositories.FAQModel.findOne();

@@ -18,6 +18,7 @@ import {SchholModule} from "./school/school.module"
 import { FirebaseAdminModule } from './notification/firebase.module';
 import { ReportModule } from './report/report.module';
 import { TripModule } from './Trip/trip.module';
+import { RouteModule } from './route/route.module';
 
 
 @Module({
@@ -37,7 +38,8 @@ import { TripModule } from './Trip/trip.module';
     FirebaseAdminModule,
     EventsModule,
     ReportModule,
-    TripModule
+    TripModule,
+    RouteModule
     
 
   ],

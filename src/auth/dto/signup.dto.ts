@@ -31,6 +31,8 @@ export class RegisterDto {
   @IsString()
   NIC?: string;
 
+ 
+
   @IsOptional()
   @IsString()
   alternatePhoneNo?: string;

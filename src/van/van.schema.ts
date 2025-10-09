@@ -41,7 +41,15 @@ export class Van {
   carNumber?: string;
 
   @Prop({ required: false })
-  vehicleCardImage?: string;
+  vehicleCardImageFront?: string;
+
+  @Prop({ required: false })
+  vehicleCardImageBack?: string;
+
+
+  @Prop({ required: false })
+  expiryDate?: string;
+
 
  @Prop({required: false, default: 'inactive' })
 status: string;

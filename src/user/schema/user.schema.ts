@@ -33,6 +33,24 @@ export class User {
   @Prop()
   address: string;
 
+  @Prop({ required: false })
+  licenceImageFront?: string;
+
+  @Prop({ required: false })
+  licenceImageBack?: string;
+
+
+
+  @Prop({ required: false })
+  vehicleCardImageFront?: string;
+
+    @Prop({ required: false })
+  vehicleCardImageBack?: string;
+
+
+  @Prop({ required: false })
+  expiryDate?: string;
+
 
   @Prop()
   lat: number;
@@ -68,6 +86,7 @@ export class User {
     @Prop({default: false })
     isDelete: boolean ;
 }
+
 
 
 

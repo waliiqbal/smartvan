@@ -58,7 +58,7 @@ afterInit(server: Server) {
       const decoded: any = decode(token, { complete: true });
       console.log("Decoded JWT:", decoded);
 
-      socket.user = decoded?.payload || decoded;
+      socket.decoded_token = decoded?.payload || decoded;
       next();
     } catch (err) {
       console.error("JWT decode failed:", err);
@@ -70,10 +70,23 @@ afterInit(server: Server) {
 
   async handleConnection(socket: CustomSocket) {
     console.log('Socket connected:', socket.id);
+
+    const payload = {
+      ok: true,
+      socketId: socket.id,
+      userId: (socket as any)?.data?.user?.userId ?? null, // if you attached auth in middleware
+      namespace: socket.nsp?.name ?? '/',
+      rooms: [...socket.rooms], // includes socket.id by default
+      at: new Date().toISOString(),
+    };
+
+    // ✅ Send acknowledgement event to just-connected client
+    socket.emit('connectionAck', payload);
   }
 
   async handleDisconnect(socket: CustomSocket) {
     console.log('Socket disconnected:', socket.id);
+    
   }
 
   /**
@@ -84,13 +97,13 @@ afterInit(server: Server) {
     @MessageBody() data: { tripId: string },
     @ConnectedSocket() socket: CustomSocket,
   ) {
-    console.log();
+    console.log("awais", socket?.decoded_token);
     if (socket?.decoded_token?.userType !== 'driver') {
       return;
     }
     const { tripId } = data;
     socket.join(tripId); // create/join trip room
-    console.log(`Driver ${socket.decoded_token.userId} joined trip room: ${tripId}`);
+    console.log(`Driver ${socket.decoded_token?.sub || socket.decoded_token.userId} joined trip room: ${tripId}`);
 
     this.server.to(socket.id).emit('tripStarted', { tripId });
   }
@@ -99,36 +112,48 @@ afterInit(server: Server) {
    * Driver updates location → emit to room
    */
   @SubscribeMessage('updateLocation')
-  async updateLocation(
-    @MessageBody() data: { tripId: string; location: any },
-    @ConnectedSocket() socket: CustomSocket,
-  ) {
-    const { tripId, location } = data;
-    console.log('Location update:', location, 'for trip:', tripId);
-   //wali db me update kardo location 
-  
-    
-    const tripObjectId = new Types.ObjectId(tripId);
+async updateLocation(
+  @MessageBody() data: { tripId: string; location: { lat: number; long: number } },
+  @ConnectedSocket() socket: any,
+) {
+  const room = String(data.tripId).trim();
 
-  
+  // 1) Who is in the room before emit?
+  const before = await this.server.in(room).allSockets(); // Set<string> of socket ids
+  console.log(`[location] will emit to room=${room}, listeners=${before.size}, listenersIds=${[...before].join(',')}`);
+
+  // (Optional) Auto-join the sender if not in room (useful for your own testing)
+  if (!socket.rooms.has(room)) {
+    console.log(`[location] sender not in room ${room}, joining temporarily`);
+    await socket.join(room);
+  }
+
+  // 2) Write to DB
+  const tripObjectId = new Types.ObjectId(room);
   await this.databaseService.repositories.TripModel.findByIdAndUpdate(
     tripObjectId,
-    {
-      $push: {
-        locations: {
-          lat: location.lat,
-          long: location.long,
-          time: new Date(), // 👈 apne taraf se current time daalna
-        },
-      },
-    },
-    { new: true }
+    { $push: { locations: { lat: data.location.lat, long: data.location.long, time: new Date() } } },
+    { new: false },
   );
-    this.server.to(tripId).emit('locationUpdated', {
-      userId: socket.decoded_token.userId,
-      location,
-    });
-  }
+
+  // 3) Emit to the room
+  const userId =
+    socket?.data?.user?.userId ||
+    socket?.decoded_token?.userId ||
+    socket?.decoded_token?.sub ||
+    'unknown';
+
+  this.server.to(room).emit('locationUpdated', {
+    userId,
+    location: data.location,
+    at: new Date().toISOString(),
+  });
+
+  // 4) Sanity log after emit (count should be same; helps you see zero listeners quickly)
+  const after = await this.server.in(room).allSockets();
+  console.log(`[location] emitted to room=${room}, listeners(now)=${after.size}`);
+}
+
 
   /**
    * Parent joins an active trip room → start receiving updates
@@ -143,7 +168,7 @@ afterInit(server: Server) {
     }
     const { tripId } = data;
     socket.join(tripId);
-    console.log(`Parent ${socket.decoded_token.userId} joined trip room: ${tripId}`);
+    console.log(`Parent ${socket?.decoded_token?.userId || socket?.decoded_token?.sub} joined trip room: ${tripId}`);
 
     this.server.to(socket.id).emit('joinedTrip', { tripId });
   }

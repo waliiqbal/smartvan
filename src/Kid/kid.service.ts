@@ -113,6 +113,51 @@ async assignVanToStudent(kidId: string, vanId: string, adminId: string) {
   };
 }
 
+async assignVanToDriver(driverId: string, vanId: string, adminId: string) {
+  const adminObjectId = new Types.ObjectId(adminId);
+  const driverObjectId = new Types.ObjectId(driverId);
+  
+
+  // Step 1: Find school by adminId
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  console.log(school._id)
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  const Driver = await this.databaseService.repositories.driverModel.findOne({ _id: driverObjectId });
+
+  const schoolIdString = school._id.toString();
+  console.log(schoolIdString)
+
+
+
+  // Step 2: Find kid by id
+  const van = await this.databaseService.repositories.VanModel.findOne({ _id: vanId, schoolId: schoolIdString });
+ 
+
+  if (!van) {
+    throw new BadGatewayException('van not found in this school');
+  }
+
+  // Step 3: Check if van already assigned
+  if (van.driverId) {
+    return {
+      message: 'Van already assigned to this Driver',
+      
+    };
+  }
+
+  // Step 4: Assign new van
+  van.driverId = driverObjectId
+  const updatedVan = await van.save();
+
+  return {
+    message: 'Van assigned successfully',
+    data: updatedVan 
+  };
+}
 async verifyStudentByAdmin(kidId: string, adminId: string) {
   const adminObjectId = new Types.ObjectId(adminId);
   

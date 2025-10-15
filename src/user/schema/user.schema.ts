@@ -49,8 +49,10 @@ export class User {
 
 
   @Prop({ required: false })
-  expiryDate?: string;
+  expiryDateLicense?: string;
 
+    @Prop({ required: false })
+  expiryDateVehicleCard?: string;
 
   @Prop()
   lat: number;

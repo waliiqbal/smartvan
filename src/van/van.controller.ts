@@ -140,8 +140,20 @@ async getDriverDocuments(@Req() req: any) {
 @Get('getVehicleType')
 async getVehicleType(@Req() req: any) {
   const driverId = req.user.userId;
-  return this.vanService.getVehicleType(driverId);
+
+  if (!driverId) {
+    throw new BadRequestException('Invalid driver token');
+  }
+
+  // ✅ Static vehicle types
+  const vehicleTypes = ['Mehran', 'Cultus', 'Corolla' , 'Alto', "wagonR"];
+
+  return {
+    message: 'Vehicle types fetched successfully',
+    data: vehicleTypes,
+  };
 }
+
 
 @UseGuards(AuthGuard('jwt'))
 @Post('deleteVanByDriver')

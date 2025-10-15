@@ -160,6 +160,17 @@ async assignVanToStudent(
 }
 
 @UseGuards(AuthGuard('jwt'))
+@Post('assignVanToDriver')
+async assignVanToDriver(
+  @Body('driverId') driverId: string,
+  @Body('vanId') vanId: string,
+  @Req() req: any,
+) {
+  const adminId = req.user.userId;
+  return this.kidService.assignVanToDriver(driverId, vanId, adminId);
+}
+
+@UseGuards(AuthGuard('jwt'))
 @Get("Get-Vans-By-SchoolAdmin")
 async getVansBySchoolAdmin(@Req() req: any) {
   const adminId = req.user.userId;

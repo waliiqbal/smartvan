@@ -450,9 +450,17 @@ async uploadDocument(body: any, driverId: string) {
     throw new UnauthorizedException('Invalid driver token');
   }
 
-  const { title, dateOfExpiry, licenceImageFront, licenceImageBack, vehicleCardImageFront, vehicleCardImageBack } = body;
+  const {
+    title,
+    licenceImageFront,
+    licenceImageBack,
+    vehicleCardImageFront,
+    vehicleCardImageBack,
+    expiryDateLicense,
+    expiryDateVehicleCard
+  } = body;
 
-  // Step 1: Driver find karo
+  // Step 1: Find driver
   const driver = await this.databaseService.repositories.driverModel.findById(
     new Types.ObjectId(driverId)
   );
@@ -461,22 +469,25 @@ async uploadDocument(body: any, driverId: string) {
     throw new BadRequestException('Driver not found');
   }
 
-  // Step 2: Jo fields body me aaye hain, sirf wahi update karo
-  
-  if (dateOfExpiry) driver.expiryDate = dateOfExpiry;
+  // Step 2: Update only fields that are sent in request
   if (licenceImageFront) driver.licenceImageFront = licenceImageFront;
   if (licenceImageBack) driver.licenceImageBack = licenceImageBack;
   if (vehicleCardImageFront) driver.vehicleCardImageFront = vehicleCardImageFront;
-   if (vehicleCardImageBack) driver.vehicleCardImageBack = vehicleCardImageBack;
+  if (vehicleCardImageBack) driver.vehicleCardImageBack = vehicleCardImageBack;
+  if (expiryDateLicense) driver.expiryDateLicense = expiryDateLicense;
+  if (expiryDateVehicleCard) driver.expiryDateVehicleCard = expiryDateVehicleCard;
 
-  // Step 3: Save the updated driver
+  // Step 3: Save changes
   await driver.save();
 
   return {
-    message: 'Driver document updated successfully',
+    message: 'Driver documents uploaded successfully',
     data: driver,
   };
 }
+
+
+
 
 async getDriverDocuments(driverId: string) {
   if (!driverId) {
@@ -499,28 +510,28 @@ async getDriverDocuments(driverId: string) {
     data: driver,
   };
 }
-async getVehicleType(driverId: string) {
-  if (!driverId) {
-    throw new UnauthorizedException('Invalid driver token');
-  }
+// async getVehicleType(driverId: string) {
+//   if (!driverId) {
+//     throw new UnauthorizedException('Invalid driver token');
+//   }
 
-  // Step 1: Van find karo based on driverId
-  const van = await this.databaseService.repositories.VanModel.findOne(
-    { driverId: new Types.ObjectId(driverId) },
-  );
+//   // Step 1: Van find karo based on driverId
+//   const van = await this.databaseService.repositories.VanModel.findOne(
+//     { driverId: new Types.ObjectId(driverId) },
+//   );
 
-  if (!van) {
-    throw new BadRequestException('Van not found for this driver');
-  }
+//   if (!van) {
+//     throw new BadRequestException('Van not found for this driver');
+//   }
 
-  // Step 2: Response return karo
-  return {
-    message: 'Vehicle type fetched successfully',
-    data: {
-      vehicleType: van.vehicleType,
-    },
-  };
-}
+//   // Step 2: Response return karo
+//   return {
+//     message: 'Vehicle type fetched successfully',
+//     data: {
+//       vehicleType: van.vehicleType,
+//     },
+//   };
+// }
 
 async deleteVan(driverId: string) {
   if (!driverId) {
@@ -546,6 +557,8 @@ async deleteVan(driverId: string) {
     message: 'Van unlinked from driver successfully',
   };
 }
+
+
 
 
 

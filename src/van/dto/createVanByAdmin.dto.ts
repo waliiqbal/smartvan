@@ -7,7 +7,11 @@ export class CreateVanByAdminDto {
   // Vehicle Details
   @IsOptional()
   @IsString()
-  vehicleType?: string;        // Vehicle Type (e.g., Suzuki Bolan)
+  vehicleType?: string; 
+  
+  @IsOptional()
+  @IsString()
+  venImage?: string; 
 
   @IsOptional()
   @IsString()

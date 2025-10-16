@@ -22,6 +22,10 @@ export class EditVanByAdminDto {
   condition?: string;
 
   @IsOptional()
+  @IsString()
+  venImage?: string;
+
+  @IsOptional()
   @IsNumber()
   venCapacity?: number;
 

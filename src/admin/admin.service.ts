@@ -496,7 +496,16 @@ async removeKids(AdminId: string, kidIds: string[]) {
   };
 }
 
-async getKidById(kidId: string) {
+async getKidById(kidId: string, AdminId: string) {
+
+
+    const adminObjectId = new Types.ObjectId(AdminId);
+
+  // Step 1: Find school by admin
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
   // 1. Kid find karo
   const kid = await this.databaseService.repositories.KidModel.findById(kidId);
 
@@ -520,7 +529,9 @@ async getKidById(kidId: string) {
       fullname: kid.fullname,
       age: kid.age,
       grade: kid.grade,
-      schoolId: kid.schoolId,
+      gender: kid.gender,
+      dob: kid.dob,
+      schoolId: school._id,
       parentId: kid.parentId,
       VanId: kid.VanId || null,
       image: kid.image || "",
@@ -529,29 +540,107 @@ async getKidById(kidId: string) {
       parentName: parent? parent.fullname : null , // agar parent mila to email, warna null
       vehicleType: van ? van.vehicleType : null,
       route: van ? van.assignRoute : null,
+      carNumber: van ? van.carNumber : null,
+      schoolName: school.schoolName
+
+
     }
   };
 }
 
-  async getVansBySchoolAdmin(adminId: string) {
+async getVansBySchoolAdmin(adminId: string, page = 1, limit = 10) {
   const adminObjectId = new Types.ObjectId(adminId);
 
-  // Step 1: find school
+  // Step 1: find school by adminId
   const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
   if (!school) {
     throw new UnauthorizedException("School not found");
   }
 
-  // Step 2: fetch all vans of this school (full document)
-  const vans = await this.databaseService.repositories.VanModel.find({
+  const skip = (page - 1) * limit;
+
+  // Step 2: aggregation pipeline
+  const pipeline = [
+    {
+      $match: {
+        schoolId: school._id.toString()
+      }
+    },
+    {
+      $addFields: {
+        driverObjectId: {
+          $cond: {
+            if: { $and: [{ $ne: ["$driverId", null] }, { $ne: ["$driverId", ""] }] },
+            then: { $toObjectId: "$driverId" },
+            else: null
+          }
+        }
+      }
+    },
+   {
+    $sort: { createdAt: -1 } // 👈 newest vans first by creation date
+  },
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "driverObjectId",
+        foreignField: "_id",
+        as: "driver"
+      }
+    },
+    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+
+ 
+
+    {
+      $project: {
+        _id: 0,
+        van: {
+          id: { $toString: "$_id" },
+          schoolId: "$schoolId",
+          driverId: { $cond: [{ $ifNull: ["$driverId", false] }, { $toString: "$driverId" }, null] },
+          venImage: { $ifNull: ["$venImage", ""] },
+          vehicleType: { $ifNull: ["$vehicleType", ""] },
+          assignRoute: { $ifNull: ["$assignRoute", ""] },
+          carNumber: { $ifNull: ["$carNumber", ""] },
+          condition: { $ifNull: ["$condition", "good"] },
+          deviceId: { $ifNull: ["$deviceId", ""] },
+          status: { $ifNull: ["$status", "inactive"] }
+        },
+        driver: {
+          id: { $cond: [{ $ifNull: ["$driver._id", false] }, { $toString: "$driver._id" }, null] },
+          fullname: { $ifNull: ["$driver.fullname", ""] },
+          email: { $ifNull: ["$driver.email", ""] },
+          phoneNo: { $ifNull: ["$driver.phoneNo", ""] },
+          image: { $ifNull: ["$driver.image", ""] }
+        }
+      }
+    },
+    { $skip: skip },
+    { $limit: limit }
+  ];
+
+ const vans = await this.databaseService.repositories.VanModel.aggregate(pipeline as any);
+
+
+  // Step 3: total count for pagination
+  const total = await this.databaseService.repositories.VanModel.countDocuments({
     schoolId: school._id.toString()
   });
 
   return {
     message: "Vans fetched successfully",
-    data: vans
+    data: vans,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
   };
 }
+
+
 
 
 }

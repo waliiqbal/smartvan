@@ -5,6 +5,7 @@ import { CreateKidDto } from './dto/CreateKid.dto';
 import { Types } from 'mongoose';
 import mongoose from 'mongoose';
 import { FirebaseAdminService } from 'src/notification/firebase-admin.service';
+import { Kid } from './kid.schema';
 
 
 
@@ -99,6 +100,8 @@ async assignVanToStudent(kidId: string, vanId: string, adminId: string) {
   if (kid.VanId) {
     return {
       message: 'Van already assigned to this student',
+      data: kid
+
       
     };
   }
@@ -145,7 +148,7 @@ async assignVanToDriver(driverId: string, vanId: string, adminId: string) {
   if (van.driverId) {
     return {
       message: 'Van already assigned to this Driver',
-      
+      data: van
     };
   }
 

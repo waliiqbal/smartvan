@@ -128,9 +128,11 @@ console.log(vans)
      console.log(schoolId, "wali")
   
    
-  const drivers = await this.databaseService.repositories.driverModel.find({
-  schoolId: schoolId
-});
+  const drivers = await this.databaseService.repositories.driverModel
+      .find({ schoolId })
+      .sort({ _id: -1 }) // 👈 newest driver first
+      .lean();
+
 
 
  
@@ -145,7 +147,19 @@ console.log(vans)
       // ✅ 3. Wrap response in data
       return {
         message: 'drivers fetched successfully',
-        data: drivers,
+         data: {
+    totalDrivers: drivers.length,
+    drivers: drivers.map(driver => ({
+      id: driver._id,
+      schoolId: driver.schoolId,
+      fullname: driver.fullname,
+      email: driver.email,
+      phoneNo: driver.phoneNo,
+      NIC: driver.NIC,
+      alternatePhoneNo: driver.alternatePhoneNo,
+      address: driver.address,
+      driverImage: driver.image
+    }))},
       };
     } catch (error) {
       throw new UnauthorizedException(error.message || 'Failed to fetch drivers');

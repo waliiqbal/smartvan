@@ -143,9 +143,12 @@ async editKid(
 
     return this.adminService.removeKids(adminId, kidIds);
   }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get("getStudentById/:id")
-async getKid(@Param("id") id: string) {
-  return this.adminService.getKidById(id);
+async getKid(@Param("id") id: string, @Req () req: any,) {
+  const adminId = req.user.userId;
+  return this.adminService.getKidById(id, adminId );
 }
 
 @UseGuards(AuthGuard('jwt'))
@@ -172,12 +175,27 @@ async assignVanToDriver(
 
 @UseGuards(AuthGuard('jwt'))
 @Get("Get-Vans-By-SchoolAdmin")
-async getVansBySchoolAdmin(@Req() req: any) {
-  const adminId = req.user.userId;
-  if (!adminId) throw new UnauthorizedException("Admin not found in token");
+async getVansBySchoolAdmin(    @Req() req: any, // request object, JWT decoded user info milega
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+   
+  ) {
+    // JWT token se AdminId nikal lo
+    const adminId = req.user.userId; // assuming AuthGuard ne req.user me user data daala
 
-  return this.adminService.getVansBySchoolAdmin(adminId);
-}
+    if (!adminId) {
+      throw new UnauthorizedException('Admin not found in token');
+    }
+
+    // page aur limit ko number me convert karo
+    const pageNumber = page ? parseInt(page) : 1;
+    const limitNumber = limit ? parseInt(limit) : 10;
+
+    // service call
+    return this.adminService.getVansBySchoolAdmin(adminId, pageNumber, limitNumber);
+
+  
+  }
 
 }
 

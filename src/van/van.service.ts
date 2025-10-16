@@ -112,6 +112,7 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
       venCapacity: dto.venCapacity,
       deviceId: dto.deviceId,
       assignRoute: dto.assignRoute,
+      venImage: dto.venImage
     });
 
     const savedVan = await newVan.save();
@@ -159,6 +160,7 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
       venCapacity: dto.venCapacity,
       deviceId: dto.deviceId,
       assignRoute: dto.assignRoute,
+      venImage: dto.venImage
     },
   },
   { new: true }, // updated document return kare
@@ -179,7 +181,7 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
 // );
 
 return {
-  message: 'Van and Driver updated successfully',
+  message: 'Van updated successfully',
   data: {
     van: updatedVan,
     // driver: updatedDriver,
@@ -286,11 +288,11 @@ async getVanById(vanId: string) {
       status: van.status || "inactive",
 
       // ✅ driver info direct fields ke saath
-      driverName: driver?.fullname || "",
-      driverPhone: driver?.phoneNo || "",
-      driverCnic: driver?.NIC || "",
-      driverPicture: driver?.image || "",
-      driverId: driver?._id || null,
+      // driverName: driver?.fullname || "",
+      // driverPhone: driver?.phoneNo || "",
+      // driverCnic: driver?.NIC || "",
+      // driverPicture: driver?.image || "",
+      // driverId: driver?._id || null,
     },
   };
 }

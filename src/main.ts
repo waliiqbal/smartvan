@@ -32,6 +32,8 @@ async function bootstrap() {
   const whitelist = [
     'http://localhost:3000',
     'https://smartvanride.com',
+    'https://smart-ven.vercel.app'
+    
   ];
 
   app.enableCors({

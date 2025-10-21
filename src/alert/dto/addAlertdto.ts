@@ -1,14 +1,13 @@
 /* eslint-disable prettier/prettier */
-import { IsOptional, IsString, IsMongoId } from 'class-validator';
+import { IsOptional, IsString, IsMongoId, IsEnum } from 'class-validator';
 
 export class AddAlertDto {
   @IsOptional()
   @IsString()
   alertType?: string;
 
-  @IsOptional()
-  @IsString()
-  title?: string;
+  @IsEnum(['ALL_PARENTS', 'ALL_DRIVERS', 'SPECIFIC_VAN'])
+  recipientType: 'ALL_PARENTS' | 'ALL_DRIVERS' | 'SPECIFIC_VAN';
 
   @IsOptional()
   @IsString()
@@ -18,7 +17,4 @@ export class AddAlertDto {
   @IsMongoId()
   vanId?: string;
 
-  @IsOptional()
-  @IsMongoId()
-  schoolId?: string;
 }

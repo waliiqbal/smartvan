@@ -119,5 +119,90 @@ if (!route.tripDays?.[today]) {
   };
 }
 
+async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
+  const adminObjectId = new Types.ObjectId(adminId);
+
+  // Step 1: Find school by adminId
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException("School not found");
+  }
+
+  const schoolIdString = school._id.toString();
+  const skip = (page - 1) * limit;
+
+  // Step 2: Aggregation pipeline
+  const routes = await this.databaseService.repositories.routeModel.aggregate([
+    // Match by school
+    { $match: { schoolId: schoolIdString } },
+
+    // Convert vanId (string) to ObjectId and lookup van details
+    {
+      $lookup: {
+        from: "vans",
+        let: { vanIdObj: { $toObjectId: "$vanId" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$vanIdObj"] } } },
+          { $project: { _id: 1, carNumber: 1, driverId: 1 } }
+        ],
+        as: "vanDetails"
+      }
+    },
+    { $unwind: { path: "$vanDetails", preserveNullAndEmptyArrays: true } },
+
+    // Lookup driver by vanDetails.driverId
+    {
+      $lookup: {
+        from: "drivers",
+        let: { drvId: "$vanDetails.driverId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$drvId"] } } },
+          { $project: { _id: 1, fullname: 1 } }
+        ],
+        as: "driverDetails"
+      }
+    },
+    { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
+
+    // Select fields to return
+    {
+      $project: {
+        _id: 1,
+        title: 1,
+        tripType: 1,
+        startTime: 1,
+        startPoint: 1,
+        endPoint: 1,
+        tripDays: 1,
+        vanId: 1,
+        "vanDetails._id": 1,
+        "vanDetails.carNumber": 1,
+        "driverDetails._id": 1,
+        "driverDetails.fullname": 1,
+        createdAt: 1,
+        updatedAt: 1,
+      }
+    },
+
+    // Pagination
+    { $skip: skip },
+    { $limit: limit },
+  ]);
+
+  // Step 3: Count total
+  const totalRoutes = await this.databaseService.repositories.routeModel.countDocuments({
+    schoolId: schoolIdString,
+  });
+
+  // Step 4: Return final paginated result
+  return {
+    totalRoutes,
+    currentPage: page,
+    totalPages: Math.ceil(totalRoutes / limit),
+    routes,
+  };
+}
+
+
 }
 

@@ -19,6 +19,8 @@ import { FirebaseAdminModule } from './notification/firebase.module';
 import { ReportModule } from './report/report.module';
 import { TripModule } from './Trip/trip.module';
 import { RouteModule } from './route/route.module';
+import { AlertModule } from './alert/alert.module';
+
 
 
 @Module({
@@ -39,7 +41,8 @@ import { RouteModule } from './route/route.module';
     EventsModule,
     ReportModule,
     TripModule,
-    RouteModule
+    RouteModule,
+    AlertModule
     
 
   ],

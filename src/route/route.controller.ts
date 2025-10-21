@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 
-import { Controller, Post, Body, Req, Get, Query, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get, Query, NotFoundException, Param } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UseGuards } from '@nestjs/common';
 import { RouteService } from './route.service'
@@ -48,6 +48,24 @@ async getRoutes(
   return this.routetService.getAllRoutesByAdmin(adminId, pageNumber, limitNumber);
 
 
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Get('getRouteById/:routeId')
+async getRouteById(@Req() req: any, @Param('routeId') routeId: string) {
+  const adminId = req.user.userId;
+  return this.routetService.getRouteById(adminId, routeId);
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Post('editRoute')
+async editRoute(
+  @Req() req: any,
+  @Body('routeId') routeId: string,  // routeId alag se body me aayega
+  @Body() dto: CreateRouteDto        // baaki fields dto se aayengi
+) {
+  const adminId = req.user.userId;
+  return this.routetService.editRoute(adminId, routeId, dto);
 }
 
 

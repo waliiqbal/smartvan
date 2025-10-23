@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 
-import { Controller, Post, Body, Req, Get } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UseGuards } from '@nestjs/common';
 import { ReportService } from './report.service';
@@ -28,9 +28,14 @@ export class ReportController {
 
    @UseGuards(AuthGuard('jwt')) // Token guard
   @Get("getComplainsByAdmin")
-  async getComplainsByAdmin( @Req() req: any) {
-    const adminId = req.user.userId; // token se parent ID
-    return this.reportService.getReportsForAdmin( adminId);
+  async getComplainsByAdmin( @Req() req: any,
+   @Query('page') page: string,
+  @Query('limit') limit: string,
+) {
+    const adminId = req.user.userId;
+     const pageNumber = page ? parseInt(page) : 1;
+    const limitNumber = limit ? parseInt(limit) : 10;
+    return this.reportService.getReportsForAdmin( adminId, pageNumber, limitNumber);
   }
 
   
@@ -38,11 +43,15 @@ export class ReportController {
   @Post('changeComplaintStatus')
 async changeComplaintStatus(
   @Req() req: any,
+  
   @Body() body: { reportId: string; status: string },
 ) {
   const adminId = req.user.userId; // JWT token se adminId milti hai
   const { reportId, status } = body;
-  console.log("wali")
+
+  
+ 
+
 
   return this.reportService.changeComplaintStatus(adminId, reportId, status);
   

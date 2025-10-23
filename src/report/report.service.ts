@@ -111,7 +111,7 @@ async createDriverReport(body: any, driverId: string) {
   };
 }
 
-async getReportsForAdmin(adminId: string) {
+async getReportsForAdmin(adminId: string, page = 1, limit = 10) {
   // 1️⃣ Admin se schoolId nikaalo
   const adminObjectId = new Types.ObjectId(adminId);
 
@@ -124,13 +124,18 @@ async getReportsForAdmin(adminId: string) {
   }
 
   const schoolId = school._id.toString();
+  const skip = (page - 1) * limit;
 
-  // 2️⃣ Reports fetch + lookups
+  // 2️⃣ Pehle total documents count karo
+  const total = await this.databaseService.repositories.reportModel.countDocuments({
+    schoolId: schoolId
+  });
+
+  // 3️⃣ Reports fetch with lookups
   const reports = await this.databaseService.repositories.reportModel.aggregate([
-    // Match all reports for this admin’s school
     { $match: { schoolId: schoolId } },
 
-    // 🔹 Lookup driver (driverId string → ObjectId)
+    // 🔹 Lookup driver
     {
       $lookup: {
         from: 'drivers',
@@ -153,7 +158,7 @@ async getReportsForAdmin(adminId: string) {
     },
     { $unwind: { path: '$driver', preserveNullAndEmptyArrays: true } },
 
-    // 🔹 Lookup van (driverId link se)
+    // 🔹 Lookup van
     {
       $lookup: {
         from: 'vans',
@@ -176,7 +181,7 @@ async getReportsForAdmin(adminId: string) {
     },
     { $unwind: { path: '$van', preserveNullAndEmptyArrays: true } },
 
-    // 🔹 Lookup parent (only if parentId exists)
+    // 🔹 Lookup parent
     {
       $lookup: {
         from: 'parents',
@@ -199,7 +204,7 @@ async getReportsForAdmin(adminId: string) {
     },
     { $unwind: { path: '$parent', preserveNullAndEmptyArrays: true } },
 
-    // 🔹 Lookup kid (ab kidId se)
+    // 🔹 Lookup kid
     {
       $lookup: {
         from: 'kids',
@@ -222,7 +227,7 @@ async getReportsForAdmin(adminId: string) {
     },
     { $unwind: { path: '$kid', preserveNullAndEmptyArrays: true } },
 
-    // 🔹 Final projection (DriverReport me parent/kid hide)
+    // 🔹 Final projection
     {
       $project: {
         _id: 1,
@@ -238,33 +243,43 @@ async getReportsForAdmin(adminId: string) {
         createdAt: 1,
         driverName: '$driver.fullname',
         vanCarNumber: '$van.carNumber',
-
-        // Conditional inclusion
         parentName: {
           $cond: [
             { $ne: ['$type', 'DriverReport'] },
             '$parent.fullname',
-            '$$REMOVE' // field remove if DriverReport
+            '$$REMOVE'
           ]
         },
         kidName: {
           $cond: [
             { $ne: ['$type', 'DriverReport'] },
             '$kid.fullname',
-            '$$REMOVE' // field remove if DriverReport
+            '$$REMOVE'
           ]
         }
       }
     },
 
-    { $sort: { createdAt: -1 } }
+    // ✅ Proper order: sort → skip → limit
+    { $sort: { createdAt: -1 } },
+    { $skip: skip },
+    { $limit: limit }
   ]);
 
+  // 4️⃣ Return response with pagination info
   return {
     message: 'Reports fetched successfully',
     data: reports,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
   };
 }
+
+
 
 async changeComplaintStatus(adminId: string, reportId: string, newStatus: string) {
   // 1️⃣ AdminId ko ObjectId me convert karo

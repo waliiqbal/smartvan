@@ -226,7 +226,7 @@ async editAlert(adminId: string, alertId: string, updateData: any) {
   const adminObjectId = new Types.ObjectId(adminId);
   const alertObjectId = new Types.ObjectId(alertId);
 
-  // 1️⃣ Admin se schoolId nikaalo
+  // 1️⃣ Admin se school find karo
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -235,28 +235,66 @@ async editAlert(adminId: string, alertId: string, updateData: any) {
     throw new UnauthorizedException('Invalid admin or school not found');
   }
 
-  const schoolId = school._id;
+  // 2️⃣ Alert document fetch karo
+  const existingAlert = await this.databaseService.repositories.notificationModel.findOne({
+    _id: alertObjectId,
+    schoolId: school._id,
+  });
 
-
-  
-
-  // 3️⃣ Alert update karo
-  const updatedAlert =
-    await this.databaseService.repositories.notificationModel.findOneAndUpdate(
-      { _id: alertObjectId, schoolId },
-      { $set: updateData },
-      { new: true }
-    );
-
-  if (!updatedAlert) {
-    throw new NotFoundException('Alert not found or not authorized to update');
+  if (!existingAlert) {
+    throw new NotFoundException('Alert not found');
   }
-  
+
+  // 3️⃣ Update fields prepare karo
+  const { alertType, vanId, message, recipientType } = updateData;
+
+  // ye basic fields update karenge agar aaye ho
+  if (alertType) existingAlert.alertType = alertType;
+  if (message) existingAlert.message = message;
+  if (recipientType) existingAlert.recipientType = recipientType;
+
+  // 4️⃣ Agar type SPECIFIC_VAN ho gaya
+  if (recipientType === 'SPECIFIC_VAN') {
+    if (!vanId) {
+      throw new BadRequestException('vanId is required for SPECIFIC_VAN alerts');
+    }
+
+    const vanObjectId = new Types.ObjectId(vanId);
+    const van = await this.databaseService.repositories.VanModel.findById(vanId);
+
+    if (!van) {
+      throw new NotFoundException('Van not found');
+    }
+
+    if (!van.driverId) {
+      throw new NotFoundException('Driver not assigned to this van');
+    }
+
+    // VanId add/update karo
+    existingAlert.VanId = vanObjectId;
+  }
+
+  // 5️⃣ Agar type ALL_DRIVERS ya ALL_PARENTS ho gaya
+  else if (recipientType === 'ALL_DRIVERS' || recipientType === 'ALL_PARENTS') {
+    // agar pehle koi vanId tha to hata do
+    existingAlert.VanId = undefined;
+  }
+
+  // 6️⃣ Invalid recipientType
+  else if (recipientType && !['SPECIFIC_VAN', 'ALL_DRIVERS', 'ALL_PARENTS'].includes(recipientType)) {
+    throw new BadRequestException('Invalid recipientType value');
+  }
+
+  // 7️⃣ Save changes
+  const updatedAlert = await existingAlert.save();
+
+  // 8️⃣ Response return
   return {
     message: 'Alert updated successfully',
     data: updatedAlert,
   };
 }
+
 
 
 async deleteAlert(adminId: string, alertId: string) {

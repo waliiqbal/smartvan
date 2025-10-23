@@ -17,12 +17,39 @@ export class ReportController {
     return this.reportService.createReport(body, parentId);
   }
 
+
+
     @UseGuards(AuthGuard('jwt')) // Token guard
   @Post("addReportByDriver")
   async createReportByDriver(@Body() body: any, @Req() req: any) {
     const driverId = req.user.userId; // token se parent ID
     return this.reportService.createDriverReport(body, driverId);
   }
+
+   @UseGuards(AuthGuard('jwt')) // Token guard
+  @Get("getComplainsByAdmin")
+  async getComplainsByAdmin( @Req() req: any) {
+    const adminId = req.user.userId; // token se parent ID
+    return this.reportService.getReportsForAdmin( adminId);
+  }
+
+  
+  @UseGuards(AuthGuard('jwt'))
+  @Post('changeComplaintStatus')
+async changeComplaintStatus(
+  @Req() req: any,
+  @Body() body: { reportId: string; status: string },
+) {
+  const adminId = req.user.userId; // JWT token se adminId milti hai
+  const { reportId, status } = body;
+  console.log("wali")
+
+  return this.reportService.changeComplaintStatus(adminId, reportId, status);
+  
+}
+
+
+
 @Get('issue-types')
   getIssueTypes() {
     return {

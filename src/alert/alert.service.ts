@@ -104,30 +104,30 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
   });
 
   if (!school) {
-    throw new UnauthorizedException('Invalid admin or school not found');
+    throw new UnauthorizedException("Invalid admin or school not found");
   }
 
   const schoolId = school._id;
 
-  // 2️⃣ Notification aggregation (filtered by schoolId)
+  // 2️⃣ Aggregation (filtered by schoolId)
   const alerts = await this.databaseService.repositories.notificationModel.aggregate([
     {
       $match: { schoolId: schoolId },
     },
     {
       $lookup: {
-        from: 'vans',
-        let: { vanId: '$VanId' },
+        from: "vans",
+        let: { vanId: "$VanId" },
         pipeline: [
-          { $match: { $expr: { $eq: ['$_id', '$$vanId'] } } },
+          { $match: { $expr: { $eq: ["$_id", "$$vanId"] } } },
           { $project: { carNumber: 1, _id: 0 } },
         ],
-        as: 'vanInfo',
+        as: "vanInfo",
       },
     },
     {
       $unwind: {
-        path: '$vanInfo',
+        path: "$vanInfo",
         preserveNullAndEmptyArrays: true, // agar vanId null ho tab bhi document show ho
       },
     },
@@ -141,30 +141,31 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
         status: 1,
         schoolId: 1,
         VanId: 1,
-
-        vanNumber: '$vanInfo.carNumber',
+        vanNumber: "$vanInfo.carNumber",
       },
     },
     { $skip: skip },
     { $limit: limit },
   ]);
 
-  // 3️⃣ Total count (same filter)
-  const totalCount = await this.databaseService.repositories.notificationModel.countDocuments({
+  // 3️⃣ Total count
+  const total = await this.databaseService.repositories.notificationModel.countDocuments({
     schoolId: schoolId,
   });
 
-  // 4️⃣ Return structured response
+  // 4️⃣ Return response with same structure as other APIs
   return {
-    data : {
-    page,
-    limit,
-    totalCount,
-    totalPages: Math.ceil(totalCount / limit),
-    alerts,
-    }
+    message: "Alerts fetched successfully",
+    data: alerts,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
   };
 }
+
 
 async getAlertById(adminId: string, alertId: string) {
   // 1️⃣ Convert IDs to ObjectId

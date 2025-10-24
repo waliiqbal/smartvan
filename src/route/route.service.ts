@@ -137,10 +137,8 @@ async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
 
   // Step 2: Aggregation pipeline
   const routes = await this.databaseService.repositories.routeModel.aggregate([
-    // Match by school
     { $match: { schoolId: schoolIdString } },
 
-    // Convert vanId (string) to ObjectId and lookup van details
     {
       $lookup: {
         from: "vans",
@@ -154,7 +152,6 @@ async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
     },
     { $unwind: { path: "$vanDetails", preserveNullAndEmptyArrays: true } },
 
-    // Lookup driver by vanDetails.driverId
     {
       $lookup: {
         from: "drivers",
@@ -168,7 +165,6 @@ async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
     },
     { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
 
-    // Select fields to return
     {
       $project: {
         _id: 1,
@@ -188,27 +184,28 @@ async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
       }
     },
 
-    // Pagination
     { $skip: skip },
     { $limit: limit },
   ]);
 
   // Step 3: Count total
-  const totalRoutes = await this.databaseService.repositories.routeModel.countDocuments({
+  const total = await this.databaseService.repositories.routeModel.countDocuments({
     schoolId: schoolIdString,
   });
 
-  // Step 4: Return final paginated result
+  // ✅ Step 4: Return result in same structure
   return {
-    message: "All routes fetched successfully",
-    data: {
-    totalRoutes,
-    currentPage: page,
-    totalPages: Math.ceil(totalRoutes / limit),
-    routes,
+    message: "Routes fetched successfully",
+    data: routes,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
     }
   };
 }
+
 
 async getRouteById(adminId: string, routeId: string) {
   const adminObjectId = new Types.ObjectId(adminId);

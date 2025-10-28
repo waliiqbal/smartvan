@@ -38,6 +38,11 @@ export class SchoolController {
         const userId  = req.user.userId; 
         return this.schoolService.getDriversProfile(userId);
       }
+
+      @Get('getAllSchools')
+      async getAllSchools(@Req() req: any) {
+        return this.schoolService.getAllSchools();
+      }
    }
 
 

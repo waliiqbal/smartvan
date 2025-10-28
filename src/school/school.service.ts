@@ -166,4 +166,15 @@ console.log(vans)
     }
   }
 
+  async getAllSchools(){
+
+    const schools = await this.databaseService.repositories.SchoolModel
+      .find()
+      .sort({ _id: -1 }) 
+      .lean();
+
+      return schools;
+
+  }
+
   }

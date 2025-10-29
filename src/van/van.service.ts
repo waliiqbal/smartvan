@@ -288,11 +288,11 @@ async getVanById(vanId: string) {
       status: van.status || "inactive",
 
       // ✅ driver info direct fields ke saath
-      // driverName: driver?.fullname || "",
-      // driverPhone: driver?.phoneNo || "",
-      // driverCnic: driver?.NIC || "",
-      // driverPicture: driver?.image || "",
-      // driverId: driver?._id || null,
+      driverName: driver?.fullname || "",
+      driverPhone: driver?.phoneNo || "",
+      driverCnic: driver?.NIC || "",
+      driverPicture: driver?.image || "",
+      driverId: driver?._id || null,
     },
   };
 }

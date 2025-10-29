@@ -36,16 +36,19 @@ export class School {
   schoolEmail: string;
 
   @Prop()
+  contactPerson: string;
+
+  @Prop()
   address: string;
   
   @Prop()
   branchName: string;
   
   @Prop()
-  startTime: Date;
+  startTime: string;
   
   @Prop()
-  endTime: Date;
+  endTime: string;
 
   @Prop()
   maxTripDuration: number;
@@ -54,25 +57,26 @@ export class School {
   @Prop()
   bufferTime: number;
 
-  @Prop({ enum: ['monthly', 'yearly'], default: 'monthly' })
-  billingCycle: String;
-  
-  @Prop({ enum: ['bank'], default: 'bank' })
-  paymentMethod: String;
-
-  @Prop({ enum: ['perstudent', 'pervan', 'flatPlan'], default: 'flatPlan' })
-  selectedPaymentPlan: String;
-
-
-  @Prop({ type: [InvoiceEntry], default: [] })
-  invoiceHistory: InvoiceEntry[];
-  
   
   @Prop()
-  allowedVens: number;
+  currentPlan: string;
+  
+   @Prop()
+  billingCycle: string;
+  
+   @Prop()
+  paymentMethod: string;
+  
+
+  
+  @Prop()
+  allowedVans: number;
 
   @Prop()
   allowedStudents: number;
+
+   @Prop()
+  allowedRoutes: number;
 
   @Prop()
   lat: number;

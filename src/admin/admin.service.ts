@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from "src/database/databaseservice";
@@ -27,28 +27,30 @@ export class AdminService {
 async createAdminAndSchool(body: any) {
   const { adminInfo, schoolInfo } = body;
 
-
   const existingAdmin = await this.databaseService.repositories.AdminModel.findOne({
     email: adminInfo.email,
   });
 
   if (existingAdmin) {
     throw new Error("Admin with this email already exists");
- }
-
+  }
 
   const randomPassword = crypto.randomBytes(6).toString('hex'); // 12 char ka password
-
-
   const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-  
+  // Admin create karo
   const admin = await this.databaseService.repositories.AdminModel.create({
     ...adminInfo,
     password: hashedPassword,
   });
 
- 
+  // School create karo
+  const school = await this.databaseService.repositories.SchoolModel.create({
+    ...schoolInfo,
+    admin: admin._id,
+  });
+
+  // JWT token generate karo
   const token = this.jwtService.sign(
     {
       sub: admin._id,
@@ -58,23 +60,152 @@ async createAdminAndSchool(body: any) {
     { expiresIn: '30d' }
   );
 
+  // Clean response (exclude password, createdAt, updatedAt)
+  const cleanAdmin = await this.databaseService.repositories.AdminModel
+    .findById(admin._id)
+    .select('-password -createdAt -updatedAt -__v');
 
-  await this.databaseService.repositories.SchoolModel.create({
-    ...schoolInfo,
-    admin: admin._id,
-  });
-
- 
-  await this.otpService.sendPassword(admin.email, randomPassword);
+  const cleanSchool = await this.databaseService.repositories.SchoolModel
+    .findById(school._id)
+    .select('-createdAt -updatedAt -__v');
 
   return {
-    message: 'Admin and school created. Password sent on email.',
+    message: 'Admin and school created successfully.',
     data: {
       token,
-      
+      admin: cleanAdmin,
+      school: cleanSchool,
     },
   };
 }
+
+
+async editAdminAndSchool(body: any) {
+  const { schoolId, adminInfo, schoolInfo } = body;
+
+  // ✅ 1. School document fetch karo
+  const school = await this.databaseService.repositories.SchoolModel.findById(schoolId);
+  if (!school) {
+    throw new NotFoundException('School not found');
+  }
+
+  // ✅ 2. Admin document fetch karo school.admin se
+  const admin = await this.databaseService.repositories.AdminModel.findById(school.admin);
+  if (!admin) {
+    throw new NotFoundException('Admin linked to this school not found');
+  }
+
+  // ✅ 3. Admin update (only provided fields)
+  if (adminInfo && Object.keys(adminInfo).length > 0) {
+    await this.databaseService.repositories.AdminModel.updateOne(
+      { _id: admin._id },
+      { $set: adminInfo }
+    );
+  }
+
+  // ✅ 4. School update (add or modify any field)
+  if (schoolInfo && Object.keys(schoolInfo).length > 0) {
+    await this.databaseService.repositories.SchoolModel.updateOne(
+      { _id: schoolId },
+      { $set: schoolInfo }
+    );
+  }
+
+  // ✅ 5. Updated data fetch karke sirf safe fields return karo
+  const updatedAdmin = await this.databaseService.repositories.AdminModel.findById(admin._id).select(
+    '-password -otp -otpExpiresAt -__v -createdAt -updatedAt'
+  );
+
+  const updatedSchool = await this.databaseService.repositories.SchoolModel.findById(schoolId).select(
+    '-__v -createdAt -updatedAt'
+  );
+
+  // ✅ 6. Clean response
+  return {
+    message: 'Admin and School updated successfully',
+    data: {
+      admin: updatedAdmin,
+      school: updatedSchool,
+    },
+  };
+}
+
+async getSchoolById(schoolId: string) {
+  // 1️⃣ Check if school exists
+  const school = await this.databaseService.repositories.SchoolModel.findById(schoolId);
+
+  if (!school) {
+    throw new NotFoundException('School not found');
+  }
+
+
+  return {
+    message: 'School fetched successfully',
+    data: school,
+  };
+}
+
+async getAllSchoolsBySuperAdmin(page = 1, limit = 10, search?: string) {
+  const skip = (page - 1) * limit;
+
+  // ✅ Filter for search
+  const filter: any = {};
+  if (search) {
+    filter.schoolName = { $regex: search, $options: 'i' };
+  }
+
+  // ✅ Total count
+  const total = await this.databaseService.repositories.SchoolModel.countDocuments(filter);
+
+  // ✅ Fetch schools with limit & skip
+  const schools = await this.databaseService.repositories.SchoolModel.find(
+    filter,
+    {
+      schoolName: 1,
+      contactPerson: 1,
+      allowedVans: 1,
+      allowedRoutes: 1,
+      contactNumber: 1,
+      status: 1,
+    }
+  )
+    .skip(skip)
+    .limit(limit);
+
+  // ✅ Har school ke kids count (parallel with Promise.all)
+  const data = await Promise.all(
+    schools.map(async (school) => {
+      const kidsCount = await this.databaseService.repositories.KidModel.countDocuments({
+        schoolId: school._id.toString(), // string compare
+      });
+
+      return {
+        schoolId: school._id,
+        schoolName: school.schoolName,
+        contactPerson: school.contactPerson,
+        vanLimit: school.allowedVans,
+        routesLimit: school.allowedRoutes,
+        contactNumber: school.contactNumber,
+        status: school.status,
+        totalKids: kidsCount,
+      };
+    })
+  );
+
+  // ✅ Response
+  return {
+    message: 'Schools fetched successfully',
+    data,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+
 async resendOtpForResetPassword(email: string) {
   try {
     // 🔍 Admin model use karo

@@ -37,6 +37,50 @@ async createAdminAndSchool(@Req() req, @Body() body: any) {
   return this.adminService.createAdminAndSchool(body);
 }
 
+@UseGuards(AuthGuard('jwt'))
+@Post('edit-admin-school')
+async editAdminAndSchool(@Req() req, @Body() body: any) {
+  // ✅ Role check
+  if (req.user.role !== 'superadmin') {
+    throw new UnauthorizedException('Only superadmins can access this API');
+  }
+
+  // ✅ schoolId lazmi check
+  if (!body.schoolId) {
+    throw new UnauthorizedException('schoolId is required in body');
+  }
+
+  return this.adminService.editAdminAndSchool(body);
+}
+
+
+@Get('getSchoolById/:id')
+async getSchoolById(@Param('id') id: string) {
+  return this.adminService.getSchoolById(id);
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Get('getAllSchoolsBySuperAdmin')
+async getAllSchoolsBySuperAdmin(
+  @Req() req: any,
+  @Query('page') page: string,
+  @Query('limit') limit: string,
+  @Query('search') search?: string
+) {
+  // JWT user check
+  if (!req.user || req.user.role !== 'superadmin') {
+    throw new UnauthorizedException('Only superadmins can access this API');
+  }
+
+  // pagination convert
+  const pageNumber = page ? parseInt(page) : 1;
+  const limitNumber = limit ? parseInt(limit) : 10;
+
+  // service call
+  return this.adminService.getAllSchoolsBySuperAdmin(pageNumber, limitNumber, search);
+}
+
+
     
 
  

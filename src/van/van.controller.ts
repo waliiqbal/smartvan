@@ -21,7 +21,7 @@ export class VanController {
     @Body() createVanDto: CreateVanDto,
     @Req() req: any
   ) {
-    const { userId, userType } = req.user; // 👈 user info from JWT
+    const { userId, userType } = req.user; 
     return this.vanService.addVan(createVanDto, userId, userType);
   }
 

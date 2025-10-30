@@ -131,19 +131,28 @@ async editAdminAndSchool(body: any) {
 }
 
 async getSchoolById(schoolId: string) {
-  // 1️⃣ Check if school exists
-  const school = await this.databaseService.repositories.SchoolModel.findById(schoolId);
+  // 1️⃣ Find school and populate admin (excluding sensitive fields)
+  const school = await this.databaseService.repositories.SchoolModel
+    .findById(schoolId)
+    .populate({
+      path: 'admin',
+      select: '-password -createdAt -otp -expiresOtp -updatedAt -__v' // ❌ ye fields hide kar dega
+    });
 
+  // 2️⃣ Check if school exists
   if (!school) {
     throw new NotFoundException('School not found');
   }
 
-
+  // 3️⃣ Return response
   return {
     message: 'School fetched successfully',
     data: school,
   };
 }
+
+
+
 
 async getAllSchoolsBySuperAdmin(page = 1, limit = 10, search?: string) {
   const skip = (page - 1) * limit;

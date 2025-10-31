@@ -20,6 +20,8 @@ import { ReportModule } from './report/report.module';
 import { TripModule } from './Trip/trip.module';
 import { RouteModule } from './route/route.module';
 import { AlertModule } from './alert/alert.module';
+import { InvoiceModule } from './invoice/invoice.module';
+
 
 
 
@@ -42,7 +44,8 @@ import { AlertModule } from './alert/alert.module';
     ReportModule,
     TripModule,
     RouteModule,
-    AlertModule
+    AlertModule,
+    InvoiceModule
     
 
   ],

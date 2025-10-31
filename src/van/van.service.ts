@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from "src/database/databaseservice";
 import { CreateVanDto } from './dto/create-van.dto';
 import { OtpService } from 'src/user/schema/otp/otp.service';
@@ -557,6 +557,22 @@ async deleteVan(driverId: string) {
 
   return {
     message: 'Van unlinked from driver successfully',
+  };
+}
+
+async getVansBySchool(schoolId: string) {
+  // find all vans where schoolId matches
+  const vans = await this.databaseService.repositories.VanModel.find({ schoolId });
+
+  // if no vans found
+  if (!vans || vans.length === 0) {
+    throw new NotFoundException('No vans found for this school');
+  }
+
+  return {
+    message: 'Vans fetched successfully',
+    count: vans.length,
+    data: vans,
   };
 }
 

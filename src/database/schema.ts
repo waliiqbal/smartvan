@@ -9,3 +9,4 @@ export {Notification, NotificationDocument, NotificationSchema } from '../notifi
 export { Report, ReportDocument, ReportSchema } from '../report/report.schema';
 export { FAQ, FAQDocument, FAQSchema } from '../report/faq.schema';
 export { Route, RouteDocument, RouteSchema } from '../route/route.schema'
+export { Invoice, InvoiceDocument, InvoiceSchema } from '../invoice/invoice.schema'

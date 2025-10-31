@@ -161,6 +161,12 @@ async deleteVanByDriver(@Req() req: any) {
   const driverId = req.user.userId;
   return this.vanService.deleteVan(driverId);
 }
+
+@Get('getVansBySchoolId/:schoolId')
+async getVansBySchoolId(@Param('schoolId') schoolId: string) {
+  return this.vanService.getVansBySchool(schoolId);
 }
+}
+
 
 

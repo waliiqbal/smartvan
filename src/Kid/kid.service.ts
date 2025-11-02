@@ -22,7 +22,7 @@ export class KidService {
   ) {}
 
   
-    async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
+async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
   // Step 1: Only parents allowed
   if (userType !== 'parent') {
     throw new UnauthorizedException('Only parent can add kids');
@@ -333,6 +333,164 @@ async getParentActiveTrips(parentId: string) {
   return {
     data: trips
   };
+}
+
+async getParentDrivers(parentId: string) {
+  const Kid = this.databaseService.repositories.KidModel;
+  const Van = this.databaseService.repositories.VanModel;
+  const User = this.databaseService.repositories.driverModel;
+
+  // 1) Parent ke kids (sirf relevant fields + VanId)
+  const kids = await Kid.find(
+    { parentId: new Types.ObjectId(parentId) },
+    {
+      _id: 1,
+      fullname: 1,
+      gender: 1,
+      grade: 1,
+      image: 1,
+      status: 1,
+      verifiedBySchool: 1,
+      VanId: 1,
+    },
+  ).lean();
+
+  if (!kids || kids.length === 0) {
+    return { data: [] };
+  }
+
+  // 2) Unique VanIds -> ObjectId[] (string se safe convert)
+  const vanIdSet = new Set<string>();
+  for (const k of kids) {
+    if (k.VanId) vanIdSet.add(String(k.VanId));
+  }
+
+  const vanObjectIds = Array.from(vanIdSet)
+    .filter((id) => Types.ObjectId.isValid(id))
+    .map((id) => new Types.ObjectId(id));
+
+  // Agar sab kids unassigned hain
+  let vans: any[] = [];
+  if (vanObjectIds.length > 0) {
+    vans = await Van.find(
+      { _id: { $in: vanObjectIds } },
+      {
+        _id: 1,
+        carNumber: 1,
+        venCapacity: 1,
+        condition: 1,
+        vehicleType: 1,
+        status: 1,
+        venImage: 1,
+        assignRoute: 1,
+        deviceId: 1,
+        driverId: 1,
+      },
+    ).lean();
+  }
+
+  // 3) Driver map (driverId -> user)
+  const driverIds = vans
+    .map((v) => v.driverId)
+    .filter((id) => !!id)
+    .map((id) => id.toString());
+
+  const uniqueDriverIds = Array.from(new Set(driverIds));
+  let drivers: any[] = [];
+  if (uniqueDriverIds.length > 0) {
+    drivers = await User.find(
+      { _id: { $in: uniqueDriverIds.map((id) => new Types.ObjectId(id)) } },
+      {
+        _id: 1,
+        fullname: 1,
+        phoneNo: 1,
+        image: 1,
+        userType: 1,
+        isVerified: 1,
+        lat: 1,
+        long: 1,
+        address: 1,
+        email: 1,
+      },
+    ).lean();
+  }
+  const driverMap = new Map<string, any>(
+    drivers.map((d) => [d._id.toString(), d]),
+  );
+
+  // 4) vanId -> kids grouping
+  const kidsByVan = new Map<string, any[]>();
+  for (const k of kids) {
+    const vId = k.VanId ? String(k.VanId) : '';
+    const kidLite = {
+      id: k._id,
+      fullname: k.fullname ?? null,
+      gender: k.gender ?? null,
+      grade: k.grade ?? null,
+      image: k.image ?? null,
+      status: k.status ?? null,
+      verifiedBySchool: !!k.verifiedBySchool,
+    };
+    if (!vId || !Types.ObjectId.isValid(vId)) continue;
+    if (!kidsByVan.has(vId)) kidsByVan.set(vId, []);
+    kidsByVan.get(vId)!.push(kidLite);
+  }
+
+  // 5) result: har van + driver + us ke kids
+  const result = vans.map((v) => {
+    const vId = v._id.toString();
+    const kidsOfThisVan = kidsByVan.get(vId) ?? [];
+    const driver =
+      v.driverId && driverMap.get(v.driverId.toString())
+        ? driverMap.get(v.driverId.toString())
+        : null;
+
+    return {
+      van: {
+        id: v._id,
+        carNumber: v.carNumber ?? null,
+        capacity: v.venCapacity ?? null,
+        condition: v.condition ?? null,
+        vehicleType: v.vehicleType ?? null,
+        status: v.status ?? null,
+        image: v.venImage ?? null,
+        assignRoute: v.assignRoute ?? null,
+        deviceId: v.deviceId ?? null,
+      },
+      driver, // already a lite user object or null
+      kids: kidsOfThisVan,
+    };
+  });
+
+  // 6) Unassigned kids (VanId missing/invalid/not found)
+  const assignedVanIds = new Set(vans.map((v) => v._id.toString()));
+  const unassignedKids = kids
+    .filter(
+      (k) =>
+        !k.VanId ||
+        !Types.ObjectId.isValid(String(k.VanId)) ||
+        !assignedVanIds.has(String(k.VanId)),
+    )
+    .map((k) => ({
+      id: k._id,
+      fullname: k.fullname ?? null,
+      gender: k.gender ?? null,
+      grade: k.grade ?? null,
+      image: k.image ?? null,
+      status: k.status ?? null,
+      verifiedBySchool: !!k.verifiedBySchool,
+      vanId: k.VanId ?? null,
+    }));
+
+  if (unassignedKids.length > 0) {
+    result.push({
+      van: null,
+      driver: null,
+      kids: unassignedKids,
+    });
+  }
+
+  return { data: result };
 }
 
 async getTripHistoryByParent(parentId: string,

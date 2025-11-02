@@ -193,6 +193,97 @@ async getLocationByDriver( dto: getLocationDto) {
   };
 }
 
+async getTripsByAdmin(AdminId: string, page = 1, limit = 10, status?: string) {
+  const adminObjectId = new Types.ObjectId(AdminId);
+
+  // Step 1: Find the school
+  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) throw new UnauthorizedException("School not found");
+
+  const skip = (page - 1) * limit;
+
+  // Step 2: Aggregation pipeline
+  const pipeline: any[] = [
+    {
+      $match: {
+        schoolId: school._id.toString(),
+        ...(status ? { status } : {})
+      }
+    },
+    {
+      $addFields: {
+        vanObjectId: {
+          $cond: {
+            if: { $and: [{ $ne: ["$vanId", null] }, { $ne: ["$vanId", ""] }] },
+            then: { $toObjectId: "$vanId" },
+            else: null
+          }
+        }
+      }
+    },
+    // Lookup van
+    {
+      $lookup: {
+        from: "vans",
+        localField: "vanObjectId",
+        foreignField: "_id",
+        as: "van"
+      }
+    },
+    { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
+
+    // Lookup driver
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "van.driverId",
+        foreignField: "_id",
+        as: "driver"
+      }
+    },
+    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+
+    // Add only driverName and carNumber fields
+    {
+      $addFields: {
+        driverName: { $ifNull: ["$driver.fullname", ""] },
+        carNumber: { $ifNull: ["$van.carNumber", ""] }
+      }
+    },
+
+    // Remove van and driver objects
+    {
+      $project: {
+        van: 0,
+        driver: 0
+      }
+    },
+
+    // Pagination
+    { $skip: skip },
+    { $limit: limit }
+  ];
+
+  const trips = await this.databaseService.repositories.TripModel.aggregate(pipeline);
+
+  // Pagination total
+  const total = await this.databaseService.repositories.TripModel.countDocuments({
+    schoolId: school._id.toString(),
+    ...(status ? { status } : {})
+  });
+
+  return {
+    message: "Trips fetched successfully",
+    data: trips,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+}
+
 
 
 }

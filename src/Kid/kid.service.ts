@@ -335,12 +335,13 @@ async getParentActiveTrips(parentId: string) {
   };
 }
 
-async getParentDrivers(parentId: string) {
+async getParentDriversWithSchool(parentId: string) {
   const Kid = this.databaseService.repositories.KidModel;
   const Van = this.databaseService.repositories.VanModel;
   const User = this.databaseService.repositories.driverModel;
+  const School = this.databaseService.repositories.SchoolModel;
 
-  // 1) Parent ke kids (sirf relevant fields + VanId)
+  // 1) Parent ke kids fetch karo (required fields + VanId + schoolId)
   const kids = await Kid.find(
     { parentId: new Types.ObjectId(parentId) },
     {
@@ -352,24 +353,21 @@ async getParentDrivers(parentId: string) {
       status: 1,
       verifiedBySchool: 1,
       VanId: 1,
-    },
+      schoolId: 1,
+    }
   ).lean();
 
   if (!kids || kids.length === 0) {
     return { data: [] };
   }
 
-  // 2) Unique VanIds -> ObjectId[] (string se safe convert)
-  const vanIdSet = new Set<string>();
-  for (const k of kids) {
-    if (k.VanId) vanIdSet.add(String(k.VanId));
-  }
+  // 2) Unique VanIds -> ObjectId[]
+  const vanIds = Array.from(new Set(kids.map(k => k.VanId).filter(Boolean)));
+  const vanObjectIds = vanIds
+    .filter(id => Types.ObjectId.isValid(id))
+    .map(id => new Types.ObjectId(id));
 
-  const vanObjectIds = Array.from(vanIdSet)
-    .filter((id) => Types.ObjectId.isValid(id))
-    .map((id) => new Types.ObjectId(id));
-
-  // Agar sab kids unassigned hain
+  // 3) Vans fetch karo
   let vans: any[] = [];
   if (vanObjectIds.length > 0) {
     vans = await Van.find(
@@ -385,21 +383,18 @@ async getParentDrivers(parentId: string) {
         assignRoute: 1,
         deviceId: 1,
         driverId: 1,
-      },
+      }
     ).lean();
   }
 
-  // 3) Driver map (driverId -> user)
-  const driverIds = vans
-    .map((v) => v.driverId)
-    .filter((id) => !!id)
-    .map((id) => id.toString());
-
-  const uniqueDriverIds = Array.from(new Set(driverIds));
+  // 4) Drivers fetch karo
+  const driverIds = Array.from(
+    new Set(vans.map(v => v.driverId?.toString()).filter(Boolean))
+  );
   let drivers: any[] = [];
-  if (uniqueDriverIds.length > 0) {
+  if (driverIds.length > 0) {
     drivers = await User.find(
-      { _id: { $in: uniqueDriverIds.map((id) => new Types.ObjectId(id)) } },
+      { _id: { $in: driverIds.map(id => new Types.ObjectId(id)) } },
       {
         _id: 1,
         fullname: 1,
@@ -411,14 +406,25 @@ async getParentDrivers(parentId: string) {
         long: 1,
         address: 1,
         email: 1,
-      },
+      }
     ).lean();
   }
-  const driverMap = new Map<string, any>(
-    drivers.map((d) => [d._id.toString(), d]),
-  );
+  const driverMap = new Map(drivers.map(d => [d._id.toString(), d]));
 
-  // 4) vanId -> kids grouping
+  // 5) Schools fetch karo
+  const schoolIds = Array.from(
+    new Set(kids.map(k => k.schoolId).filter(Boolean))
+  );
+  let schoolMap = new Map<string, string>();
+  if (schoolIds.length > 0) {
+    const schools = await School.find(
+      { _id: { $in: schoolIds.map(id => new Types.ObjectId(id)) } },
+      { _id: 1, schoolName: 1 }
+    ).lean();
+    schoolMap = new Map(schools.map(s => [s._id.toString(), s.schoolName]));
+  }
+
+  // 6) Kids ko VanId ke hisaab se group karo
   const kidsByVan = new Map<string, any[]>();
   for (const k of kids) {
     const vId = k.VanId ? String(k.VanId) : '';
@@ -430,20 +436,19 @@ async getParentDrivers(parentId: string) {
       image: k.image ?? null,
       status: k.status ?? null,
       verifiedBySchool: !!k.verifiedBySchool,
+      schoolId: k.schoolId ?? null,
+      schoolName: k.schoolId ? schoolMap.get(k.schoolId) ?? null : null,
     };
     if (!vId || !Types.ObjectId.isValid(vId)) continue;
     if (!kidsByVan.has(vId)) kidsByVan.set(vId, []);
     kidsByVan.get(vId)!.push(kidLite);
   }
 
-  // 5) result: har van + driver + us ke kids
-  const result = vans.map((v) => {
+  // 7) Result: har van + driver + uske kids
+  const result = vans.map(v => {
     const vId = v._id.toString();
     const kidsOfThisVan = kidsByVan.get(vId) ?? [];
-    const driver =
-      v.driverId && driverMap.get(v.driverId.toString())
-        ? driverMap.get(v.driverId.toString())
-        : null;
+    const driver = v.driverId ? driverMap.get(v.driverId.toString()) : null;
 
     return {
       van: {
@@ -457,21 +462,21 @@ async getParentDrivers(parentId: string) {
         assignRoute: v.assignRoute ?? null,
         deviceId: v.deviceId ?? null,
       },
-      driver, // already a lite user object or null
+      driver,
       kids: kidsOfThisVan,
     };
   });
 
-  // 6) Unassigned kids (VanId missing/invalid/not found)
-  const assignedVanIds = new Set(vans.map((v) => v._id.toString()));
+  // 8) Unassigned kids (VanId missing/invalid/not found)
+  const assignedVanIds = new Set(vans.map(v => v._id.toString()));
   const unassignedKids = kids
     .filter(
-      (k) =>
+      k =>
         !k.VanId ||
         !Types.ObjectId.isValid(String(k.VanId)) ||
-        !assignedVanIds.has(String(k.VanId)),
+        !assignedVanIds.has(String(k.VanId))
     )
-    .map((k) => ({
+    .map(k => ({
       id: k._id,
       fullname: k.fullname ?? null,
       gender: k.gender ?? null,
@@ -480,6 +485,8 @@ async getParentDrivers(parentId: string) {
       status: k.status ?? null,
       verifiedBySchool: !!k.verifiedBySchool,
       vanId: k.VanId ?? null,
+      schoolId: k.schoolId ?? null,
+      schoolName: k.schoolId ? schoolMap.get(k.schoolId) ?? null : null,
     }));
 
   if (unassignedKids.length > 0) {
@@ -552,5 +559,28 @@ return {
 };
 
 }
+
+async deleteKidByIdAndParent(parentId: string, kidId: string) {
+  const Kid = this.databaseService.repositories.KidModel;
+
+  // 1) Validate ObjectIds
+  if (!Types.ObjectId.isValid(parentId) || !Types.ObjectId.isValid(kidId)) {
+    return { message: 'Invalid parentId or kidId' };
+  }
+
+  // 2) Find and delete the kid
+  const result = await Kid.deleteOne({
+    _id: new Types.ObjectId(kidId),
+    parentId: new Types.ObjectId(parentId),
+  });
+
+  // 3) Response
+  if (result.deletedCount > 0) {
+    return { message: 'Kid deleted successfully' };
+  } else {
+    return { message: 'Kid not found for this parent' };
+  }
+}
+
 
 }

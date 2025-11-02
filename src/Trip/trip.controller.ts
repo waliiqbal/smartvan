@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Body, Controller, Post, Patch, Param, Req, Get } from '@nestjs/common';
+import { Body, Controller, Post, Patch, Param,Query, Req, Get, UnauthorizedException } from '@nestjs/common';
 import { TripService } from './trip.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { PickStudentDto } from './dto/pick-student.dto';
@@ -49,5 +49,23 @@ async pickStudent(
     return await this.tripService.getLocationByDriver( dto);
   
 }
+
+@UseGuards(AuthGuard('jwt'))
+@Get("Get-Trips-By-Admin")
+async getTrips(
+  @Req() req: any,
+  @Query('page') page: string,
+  @Query('limit') limit: string,
+  @Query('status') status?: string, // start | ongoing | end
+) {
+  const adminId = req.user.userId;
+  if (!adminId) throw new UnauthorizedException("Admin not found in token");
+
+  const pageNumber = page ? parseInt(page) : 1;
+  const limitNumber = limit ? parseInt(limit) : 10;
+
+  return this.tripService.getTripsByAdmin(adminId, pageNumber, limitNumber, status);
+}
+
 }
 

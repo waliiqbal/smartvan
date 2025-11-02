@@ -75,6 +75,23 @@ async getTripHistory( @Req() req: any,
 }
 
 
+  @UseGuards(AuthGuard('jwt'))
+  @Get('getParentDriversWithSchool')
+async getParentDriversWithSchool(@Req() req: any) {
+  const  parentId  = req.user.userId; // 👈 token se extract hua
+  return this.KidService.getParentDriversWithSchool(parentId);
+}
+@UseGuards(AuthGuard('jwt'))
+@Post('deleteKidByParent')
+async deleteKid(
+  @Req() req: any,
+  @Body('kidId') kidId: string, // body se kidId le rahe
+) {
+  const parentId = req.user.userId; // token se parentId
+  return this.KidService.deleteKidByIdAndParent(parentId, kidId);
+}
+
+
 
 }
 

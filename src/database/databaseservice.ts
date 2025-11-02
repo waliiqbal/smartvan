@@ -30,6 +30,10 @@ export class DatabaseService {
 
      @InjectModel(schema.FAQ.name)
     private FAQModel: Model<schema.FAQDocument>,
+
+    
+     @InjectModel(schema.Invoice.name)
+    private invoiceModel: Model<schema.FAQDocument>,
      ) {}
      get repositories() {
     return {
@@ -43,7 +47,8 @@ export class DatabaseService {
       notificationModel: this.notificationModel,
       reportModel: this.reportModel,
       FAQModel: this.FAQModel,
-      routeModel: this.routeModel
+      routeModel: this.routeModel,
+      invoiceModel: this.invoiceModel
         };
   }
 }

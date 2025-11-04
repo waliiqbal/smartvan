@@ -3,8 +3,10 @@ import { Injectable, UnauthorizedException, NotFoundException, BadRequestExcepti
 import { InjectModel } from '@nestjs/mongoose';
 import { PickStudentDto } from './dto/pick-student.dto';
 import mongoose from 'mongoose';
-import { Types } from 'mongoose';
+import moment from "moment-timezone";
+import { Types } from "mongoose";
 
+const TZ = "Asia/Karachi";
 
 
 
@@ -282,6 +284,98 @@ async getTripsByAdmin(AdminId: string, page = 1, limit = 10, status?: string) {
       totalPages: Math.ceil(total / limit)
     }
   };
+}
+
+async generateGraphData(
+  AdminId: string,
+  adminType: "admin" | "superadmin",
+  filterType: "weekly" | "monthly" | "yearly"
+) {
+  const adminObjectId = new Types.ObjectId(AdminId);
+
+  // 1) Resolve time window + labels
+  let start: moment.Moment;
+  let end: moment.Moment;
+  let labels: string[] = [];
+
+  if (filterType === "weekly") {
+    start = moment().tz(TZ).startOf("isoWeek");
+    end = moment().tz(TZ).endOf("isoWeek");
+    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  } else if (filterType === "monthly") {
+    start = moment().tz(TZ).startOf("month");
+    end = moment().tz(TZ).endOf("month");
+    const dim = start.daysInMonth();
+    labels = Array.from({ length: dim }, (_, i) => String(i + 1).padStart(2, "0"));
+  } else if (filterType === "yearly") {
+    start = moment().tz(TZ).startOf("year");
+    end = moment().tz(TZ).endOf("year");
+    labels = moment.monthsShort();
+  } else {
+    throw new Error("Invalid filterType");
+  }
+
+  // 2) Build base match (time range always applies)
+  const match: any = {
+    createdAt: { $gte: start.toDate(), $lte: end.toDate() },
+  };
+
+  // If admin → restrict to their school; superadmin sees all schools
+  if (adminType === "admin") {
+    const school = await this.databaseService.repositories.SchoolModel
+      .findOne({ admin: adminObjectId })
+      .lean();
+
+    if (!school) throw new UnauthorizedException("School not found");
+
+    // Trip.schoolId is a string in your schema
+    match.schoolId = String(school._id ?? school.id);
+  }
+
+  // 3) Group key per filter
+  let groupId: any;
+  if (filterType === "weekly") {
+    groupId = { $isoDayOfWeek: { date: "$createdAt", timezone: TZ } }; // 1..7 (Mon..Sun)
+  } else if (filterType === "monthly") {
+    groupId = { $dateToString: { format: "%d", date: "$createdAt", timezone: TZ } }; // "01".."31"
+  } else {
+    groupId = { $dateToString: { format: "%m", date: "$createdAt", timezone: TZ } }; // "01".."12"
+  }
+
+  const TripModel = this.databaseService.repositories.TripModel;
+
+  const rows: Array<{ _id: any; count: number }> = await TripModel.aggregate([
+    { $match: match },
+    { $group: { _id: groupId, count: { $sum: 1 } } },
+  ]);
+
+  // 4) Zero-filled map
+  const map: Record<string, number> = {};
+  for (const l of labels) map[l] = 0;
+
+  // 5) Fill counts
+  for (const r of rows) {
+    if (filterType === "weekly") {
+      const idx = (Number(r._id) || 1) - 1; // 0..6
+      const label = labels[idx];
+      if (label) map[label] = r.count;
+    } else if (filterType === "monthly") {
+      const label = String(r._id);
+      if (label in map) map[label] = r.count;
+    } else {
+      const monthNum = Number(r._id); // 1..12
+      const label = moment().month(monthNum - 1).format("MMM");
+      if (label in map) map[label] = r.count;
+    }
+  }
+
+  // 6) Series in stable label order
+  const graphData = labels.map((label) => ({
+    name: label,
+    count: map[label] || 0,
+  }));
+
+  return graphData;
 }
 
 

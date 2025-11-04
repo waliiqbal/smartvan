@@ -67,5 +67,19 @@ async getTrips(
   return this.tripService.getTripsByAdmin(adminId, pageNumber, limitNumber, status);
 }
 
+@UseGuards(AuthGuard('jwt'))
+@Get("getDashboard")
+async getDashboard(
+  @Req() req: any,
+  @Query('filterType') filterType: any,
+  
+) {
+  const adminId = req.user.userId;
+  if (!adminId) throw new UnauthorizedException("Admin not found in token");
+
+  return this.tripService.generateGraphData(adminId, "admin", filterType);
+}
+
+
 }
 

@@ -3,7 +3,8 @@ import { Injectable, UnauthorizedException, NotFoundException, BadRequestExcepti
 import { InjectModel } from '@nestjs/mongoose';
 import { PickStudentDto } from './dto/pick-student.dto';
 import mongoose from 'mongoose';
-import moment from "moment-timezone";
+import * as moment from "moment-timezone"
+
 import { Types } from "mongoose";
 
 const TZ = "Asia/Karachi";
@@ -315,12 +316,15 @@ async generateGraphData(
     throw new Error("Invalid filterType");
   }
 
-  // 2) Build base match (time range always applies)
+  // 2) Base match for graph
   const match: any = {
     createdAt: { $gte: start.toDate(), $lte: end.toDate() },
   };
 
-  // If admin → restrict to their school; superadmin sees all schools
+  // SchoolId store karne ke liye
+  let schoolIdString: string | null = null;
+
+  // Agar admin hai → uska school nikaalna
   if (adminType === "admin") {
     const school = await this.databaseService.repositories.SchoolModel
       .findOne({ admin: adminObjectId })
@@ -328,18 +332,18 @@ async generateGraphData(
 
     if (!school) throw new UnauthorizedException("School not found");
 
-    // Trip.schoolId is a string in your schema
-    match.schoolId = String(school._id ?? school.id);
+    schoolIdString = String(school._id ?? school.id);
+    match.schoolId = schoolIdString;
   }
 
   // 3) Group key per filter
   let groupId: any;
   if (filterType === "weekly") {
-    groupId = { $isoDayOfWeek: { date: "$createdAt", timezone: TZ } }; // 1..7 (Mon..Sun)
+    groupId = { $isoDayOfWeek: { date: "$createdAt", timezone: TZ } }; // 1..7
   } else if (filterType === "monthly") {
-    groupId = { $dateToString: { format: "%d", date: "$createdAt", timezone: TZ } }; // "01".."31"
+    groupId = { $dateToString: { format: "%d", date: "$createdAt", timezone: TZ } };
   } else {
-    groupId = { $dateToString: { format: "%m", date: "$createdAt", timezone: TZ } }; // "01".."12"
+    groupId = { $dateToString: { format: "%m", date: "$createdAt", timezone: TZ } };
   }
 
   const TripModel = this.databaseService.repositories.TripModel;
@@ -353,30 +357,62 @@ async generateGraphData(
   const map: Record<string, number> = {};
   for (const l of labels) map[l] = 0;
 
-  // 5) Fill counts
+  // 5) Fill counts into map
   for (const r of rows) {
     if (filterType === "weekly") {
-      const idx = (Number(r._id) || 1) - 1; // 0..6
+      const idx = (Number(r._id) || 1) - 1;
       const label = labels[idx];
       if (label) map[label] = r.count;
     } else if (filterType === "monthly") {
       const label = String(r._id);
       if (label in map) map[label] = r.count;
     } else {
-      const monthNum = Number(r._id); // 1..12
+      const monthNum = Number(r._id);
       const label = moment().month(monthNum - 1).format("MMM");
       if (label in map) map[label] = r.count;
     }
   }
 
-  // 6) Series in stable label order
+  // 6) Graph data array
   const graphData = labels.map((label) => ({
     name: label,
     count: map[label] || 0,
   }));
 
-  return graphData;
+  // --------------- EXTRA COUNTS ---------------
+  const VanModel = this.databaseService.repositories.VanModel;
+  const KidModel = this.databaseService.repositories.KidModel; // adjust if plural
+  // TripModel already available
+
+  // Base filter for admin (for superadmin → no filter)
+  const baseCountFilter: any = {};
+  if (adminType === "admin" && schoolIdString) {
+    baseCountFilter.schoolId = schoolIdString;
+  }
+
+  // Parallel counts
+  const [vansCount, tripsCount, kidsCount] = await Promise.all([
+    VanModel.countDocuments(adminType === "admin" ? baseCountFilter : {}),
+    TripModel.countDocuments(adminType === "admin" ? baseCountFilter : {}),
+    KidModel.countDocuments(adminType === "admin" ? baseCountFilter : {}),
+  ]);
+
+  const driversCount = vansCount; // drivers = vans count
+
+  // --------------- Final response ---------------
+  const data = {
+    graph: graphData,
+    counts: {
+      vans: vansCount,
+      drivers: driversCount,
+      trips: tripsCount,
+      kids: kidsCount,
+    },
+  };
+
+  return { data };
 }
+
 
 
 

@@ -35,7 +35,7 @@ export class ReportController {
     const adminId = req.user.userId;
      const pageNumber = page ? parseInt(page) : 1;
     const limitNumber = limit ? parseInt(limit) : 10;
-    return this.reportService.getReportsForAdmin( adminId, pageNumber, limitNumber);
+    return this.reportService.getReportsForAdmin( adminId, req?.user?.role, pageNumber, limitNumber);
   }
 
   

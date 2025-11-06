@@ -196,20 +196,35 @@ async getLocationByDriver( dto: getLocationDto) {
   };
 }
 
-async getTripsByAdmin(AdminId: string, page = 1, limit = 10, status?: string) {
+async getTripsByAdmin(
+  AdminId: string,
+  page = 1,
+  limit = 10,
+  status?: string,
+  userType?: string
+) {
   const adminObjectId = new Types.ObjectId(AdminId);
-
-  // Step 1: Find the school
-  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
-  if (!school) throw new UnauthorizedException("School not found");
-
   const skip = (page - 1) * limit;
+
+  let schoolFilter: any = {};
+
+  // Step 1: Determine school filter based on userType
+  if (userType === "admin") {
+    const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+    if (!school) throw new UnauthorizedException("School not found");
+    schoolFilter = { schoolId: school._id.toString() };
+  } else if (userType === "superadmin") {
+    // Superadmin sees all trips — no school filter
+    schoolFilter = {};
+  } else {
+    throw new UnauthorizedException("Invalid user type");
+  }
 
   // Step 2: Aggregation pipeline
   const pipeline: any[] = [
     {
       $match: {
-        schoolId: school._id.toString(),
+        ...schoolFilter,
         ...(status ? { status } : {})
       }
     },
@@ -224,7 +239,6 @@ async getTripsByAdmin(AdminId: string, page = 1, limit = 10, status?: string) {
         }
       }
     },
-    // Lookup van
     {
       $lookup: {
         from: "vans",
@@ -234,8 +248,6 @@ async getTripsByAdmin(AdminId: string, page = 1, limit = 10, status?: string) {
       }
     },
     { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
-
-    // Lookup driver
     {
       $lookup: {
         from: "drivers",
@@ -245,39 +257,34 @@ async getTripsByAdmin(AdminId: string, page = 1, limit = 10, status?: string) {
       }
     },
     { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
-
-    // Add only driverName and carNumber fields
     {
       $addFields: {
         driverName: { $ifNull: ["$driver.fullname", ""] },
         carNumber: { $ifNull: ["$van.carNumber", ""] }
       }
     },
-
-    // Remove van and driver objects
     {
       $project: {
         van: 0,
         driver: 0
       }
     },
-
-    // Pagination
     { $skip: skip },
     { $limit: limit }
   ];
 
   const trips = await this.databaseService.repositories.TripModel.aggregate(pipeline);
 
-  // Pagination total
+  // Step 3: Pagination total
   const total = await this.databaseService.repositories.TripModel.countDocuments({
-    schoolId: school._id.toString(),
+    ...schoolFilter,
     ...(status ? { status } : {})
   });
 
   return {
     message: "Trips fetched successfully",
     data: trips,
+    user: userType,
     pagination: {
       total,
       page,
@@ -286,6 +293,7 @@ async getTripsByAdmin(AdminId: string, page = 1, limit = 10, status?: string) {
     }
   };
 }
+
 
 async generateGraphData(
   AdminId: string,

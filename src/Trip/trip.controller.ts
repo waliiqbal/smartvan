@@ -59,12 +59,14 @@ async getTrips(
   @Query('status') status?: string, // start | ongoing | end
 ) {
   const adminId = req.user.userId;
+
+  console.log(req.user);
   if (!adminId) throw new UnauthorizedException("Admin not found in token");
 
   const pageNumber = page ? parseInt(page) : 1;
   const limitNumber = limit ? parseInt(limit) : 10;
 
-  return this.tripService.getTripsByAdmin(adminId, pageNumber, limitNumber, status);
+  return this.tripService.getTripsByAdmin(adminId, pageNumber, limitNumber, status, req?.user?.role);
 }
 
 @UseGuards(AuthGuard('jwt'))
@@ -77,7 +79,7 @@ async getDashboard(
   const adminId = req.user.userId;
   if (!adminId) throw new UnauthorizedException("Admin not found in token");
 
-  return this.tripService.generateGraphData(adminId, "admin", filterType);
+  return this.tripService.generateGraphData(adminId, req?.user?.role, filterType);
 }
 
 

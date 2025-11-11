@@ -114,20 +114,29 @@ async createDriverReport(body: any, driverId: string) {
 async getReportsForAdmin(
   adminId: string,
   userType: string,
-  page = 1,
-  limit = 10
+  query: any, // 👈 from @Query()
 ) {
   const adminObjectId = new Types.ObjectId(adminId);
+
+  // pagination
+  const page = Math.max(1, parseInt(query.page as string, 10) || 1);
+  const limit = Math.max(1, parseInt(query.limit as string, 10) || 10);
   const skip = (page - 1) * limit;
+  console.log(query, userType);
+  // optional filters
+  const status =
+    typeof query.status === "string" ? query.status.trim() : "";
+  const typeFilter =
+    typeof query.type === "string" ? query.type.trim() : "";
 
   let matchFilter: any = {};
 
-  // 🔹 Step 1: Build match filter based on userType
+  // 🔹 Step 1: Base match filter by userType
   if (userType === "admin") {
-    // Admin → only that admin's school reports
-    const school = await this.databaseService.repositories.SchoolModel.findOne({
-      admin: adminObjectId,
-    });
+    const school =
+      await this.databaseService.repositories.SchoolModel.findOne({
+        admin: adminObjectId,
+      });
 
     if (!school) {
       throw new UnauthorizedException("Invalid admin or school not found");
@@ -135,150 +144,182 @@ async getReportsForAdmin(
 
     matchFilter.schoolId = school._id.toString();
   } else if (userType === "superadmin") {
-    // Superadmin → see all reports (no school restriction)
     matchFilter = {};
   } else {
     throw new UnauthorizedException("Invalid user type");
   }
 
-  // 🔹 Step 2: Count total reports
-  const total = await this.databaseService.repositories.reportModel.countDocuments(matchFilter);
+  // 🔹 Step 2: Apply exact-match filters (no regex)
+  if (status) {
+    matchFilter.status = status; // e.g. "open" / "resolved"
+  }
 
-  // 🔹 Step 3: Aggregation pipeline
-  const reports = await this.databaseService.repositories.reportModel.aggregate([
-    { $match: matchFilter },
+  if (typeFilter) {
+    matchFilter.type = typeFilter; // e.g. "DriverReport" / "ParentReport"
+  }
 
-    // Driver lookup
-    {
-      $lookup: {
-        from: "drivers",
-        let: { drvId: "$driverId" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $ne: ["$$drvId", null] },
-                  { $eq: ["$_id", { $toObjectId: "$$drvId" }] },
-                ],
+  // 🔹 Step 3: Count total with same filter
+  const total =
+    await this.databaseService.repositories.reportModel.countDocuments(
+      matchFilter,
+    );
+
+  // 🔹 Step 4: Aggregation pipeline
+  const reports =
+    await this.databaseService.repositories.reportModel.aggregate([
+      { $match: matchFilter },
+
+      // Driver lookup
+      {
+        $lookup: {
+          from: "drivers",
+          let: { drvId: "$driverId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ["$$drvId", null] },
+                    { $eq: ["$_id", { $toObjectId: "$$drvId" }] },
+                  ],
+                },
               },
             },
-          },
-          { $project: { fullname: 1 } },
-        ],
-        as: "driver",
-      },
-    },
-    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
-
-    // Van lookup
-    {
-      $lookup: {
-        from: "vans",
-        let: { drvId: "$driverId" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $ne: ["$$drvId", null] },
-                  { $eq: ["$driverId", { $toObjectId: "$$drvId" }] },
-                ],
-              },
-            },
-          },
-          { $project: { carNumber: 1 } },
-        ],
-        as: "van",
-      },
-    },
-    { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
-
-    // Parent lookup
-    {
-      $lookup: {
-        from: "parents",
-        let: { pId: "$parentId" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $ne: ["$$pId", null] },
-                  { $eq: ["$_id", { $toObjectId: "$$pId" }] },
-                ],
-              },
-            },
-          },
-          { $project: { fullname: 1 } },
-        ],
-        as: "parent",
-      },
-    },
-    { $unwind: { path: "$parent", preserveNullAndEmptyArrays: true } },
-
-    // Kid lookup
-    {
-      $lookup: {
-        from: "kids",
-        let: { kId: "$kidId" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $ne: ["$$kId", null] },
-                  { $eq: ["$_id", { $toObjectId: "$$kId" }] },
-                ],
-              },
-            },
-          },
-          { $project: { fullname: 1 } },
-        ],
-        as: "kid",
-      },
-    },
-    { $unwind: { path: "$kid", preserveNullAndEmptyArrays: true } },
-
-    // Final projection
-    {
-      $project: {
-        _id: 1,
-        schoolId: 1,
-        issueType: 1,
-        description: 1,
-        image: 1,
-        audio: 1,
-        video: 1,
-        type: 1,
-        dateOfIncident: 1,
-        status: 1,
-        createdAt: 1,
-        driverName: "$driver.fullname",
-        vanCarNumber: "$van.carNumber",
-        parentName: {
-          $cond: [
-            { $ne: ["$type", "DriverReport"] },
-            "$parent.fullname",
-            "$$REMOVE",
+            { $project: { fullname: 1 } },
           ],
-        },
-        kidName: {
-          $cond: [
-            { $ne: ["$type", "DriverReport"] },
-            "$kid.fullname",
-            "$$REMOVE",
-          ],
+          as: "driver",
         },
       },
-    },
+      {
+        $unwind: {
+          path: "$driver",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
 
-    { $sort: { createdAt: -1 } },
-    { $skip: skip },
-    { $limit: limit },
-  ]);
+      // Van lookup
+      {
+        $lookup: {
+          from: "vans",
+          let: { drvId: "$driverId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ["$$drvId", null] },
+                    { $eq: ["$driverId", { $toObjectId: "$$drvId" }] },
+                  ],
+                },
+              },
+            },
+            { $project: { carNumber: 1 } },
+          ],
+          as: "van",
+        },
+      },
+      {
+        $unwind: {
+          path: "$van",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
 
-  // 🔹 Step 4: Return paginated response
+      // Parent lookup
+      {
+        $lookup: {
+          from: "parents",
+          let: { pId: "$parentId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ["$$pId", null] },
+                    { $eq: ["$_id", { $toObjectId: "$$pId" }] },
+                  ],
+                },
+              },
+            },
+            { $project: { fullname: 1 } },
+          ],
+          as: "parent",
+        },
+      },
+      {
+        $unwind: {
+          path: "$parent",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // Kid lookup
+      {
+        $lookup: {
+          from: "kids",
+          let: { kId: "$kidId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ["$$kId", null] },
+                    { $eq: ["$_id", { $toObjectId: "$$kId" }] },
+                  ],
+                },
+              },
+            },
+            { $project: { fullname: 1 } },
+          ],
+          as: "kid",
+        },
+      },
+      {
+        $unwind: {
+          path: "$kid",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // Final projection
+      {
+        $project: {
+          _id: 1,
+          schoolId: 1,
+          issueType: 1,
+          description: 1,
+          image: 1,
+          audio: 1,
+          video: 1,
+          type: 1,
+          dateOfIncident: 1,
+          status: 1,
+          createdAt: 1,
+          driverName: "$driver.fullname",
+          vanCarNumber: "$van.carNumber",
+          parentName: {
+            $cond: [
+              { $ne: ["$type", "DriverReport"] },
+              "$parent.fullname",
+              "$$REMOVE",
+            ],
+          },
+          kidName: {
+            $cond: [
+              { $ne: ["$type", "DriverReport"] },
+              "$kid.fullname",
+              "$$REMOVE",
+            ],
+          },
+        },
+      },
+
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+
+  // 🔹 Step 5: Return paginated response
   return {
     message: "Reports fetched successfully",
     data: reports,
@@ -291,6 +332,7 @@ async getReportsForAdmin(
     },
   };
 }
+
 
 
 

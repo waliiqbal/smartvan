@@ -148,6 +148,7 @@ async editKid(
   @Get("Get-Students")
   async getstudent(
     @Req() req: any, // request object, JWT decoded user info milega
+    @Query() query: any,
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('search') search?: string,
@@ -164,7 +165,7 @@ async editKid(
     const limitNumber = limit ? parseInt(limit) : 10;
 
     // service call
-    return this.adminService.getKids(adminId, pageNumber, limitNumber, search);
+    return this.adminService.getKids(adminId, query);
 
   
   }
@@ -220,6 +221,7 @@ async assignVanToDriver(
 @UseGuards(AuthGuard('jwt'))
 @Get("Get-Vans-By-SchoolAdmin")
 async getVansBySchoolAdmin(    @Req() req: any, // request object, JWT decoded user info milega
+    @Query() query: any,
     @Query('page') page: string,
     @Query('limit') limit: string,
    
@@ -236,7 +238,7 @@ async getVansBySchoolAdmin(    @Req() req: any, // request object, JWT decoded u
     const limitNumber = limit ? parseInt(limit) : 10;
 
     // service call
-    return this.adminService.getVansBySchoolAdmin(adminId, pageNumber, limitNumber);
+    return this.adminService.getVansBySchoolAdmin(adminId, query);
 
   
   }

@@ -123,20 +123,31 @@ if (!route.tripDays?.[today]) {
   };
 }
 
-async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
+async getAllRoutesByAdmin(adminId: string, query: any) {
   const adminObjectId = new Types.ObjectId(adminId);
 
-  // Step 1: Find school by adminId
-  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  // 🔹 Pagination
+  const page = Math.max(1, parseInt(query.page as string, 10) || 1);
+  const limit = Math.max(1, parseInt(query.limit as string, 10) || 10);
+  const skip = (page - 1) * limit;
+
+  // 🔹 Optional driverName filter
+  const driverName =
+    typeof query.driverName === "string" ? query.driverName.trim() : "";
+
+  // 🔹 Step 1: Find school by adminId
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
   if (!school) {
     throw new UnauthorizedException("School not found");
   }
 
   const schoolIdString = school._id.toString();
-  const skip = (page - 1) * limit;
 
-  // Step 2: Aggregation pipeline
-  const routes = await this.databaseService.repositories.routeModel.aggregate([
+  // 🔹 Base pipeline (shared for data + count)
+  const basePipeline: any[] = [
     { $match: { schoolId: schoolIdString } },
 
     {
@@ -144,27 +155,65 @@ async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
         from: "vans",
         let: { vanIdObj: { $toObjectId: "$vanId" } },
         pipeline: [
-          { $match: { $expr: { $eq: ["$_id", "$$vanIdObj"] } } },
-          { $project: { _id: 1, carNumber: 1, driverId: 1 } }
+          {
+            $match: {
+              $expr: {
+                $eq: ["$_id", "$$vanIdObj"],
+              },
+            },
+          },
+          { $project: { _id: 1, carNumber: 1, driverId: 1 } },
         ],
-        as: "vanDetails"
-      }
+        as: "vanDetails",
+      },
     },
-    { $unwind: { path: "$vanDetails", preserveNullAndEmptyArrays: true } },
+    {
+      $unwind: {
+        path: "$vanDetails",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
 
     {
       $lookup: {
         from: "drivers",
         let: { drvId: "$vanDetails.driverId" },
         pipeline: [
-          { $match: { $expr: { $eq: ["$_id", "$$drvId"] } } },
-          { $project: { _id: 1, fullname: 1 } }
+          {
+            $match: {
+              $expr: {
+                $eq: ["$_id", "$$drvId"],
+              },
+            },
+          },
+          { $project: { _id: 1, fullname: 1 } },
         ],
-        as: "driverDetails"
-      }
+        as: "driverDetails",
+      },
     },
-    { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
+    {
+      $unwind: {
+        path: "$driverDetails",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ];
 
+  // 🔹 Apply driverName filter (regex on driverDetails.fullname)
+  if (driverName) {
+    basePipeline.push({
+      $match: {
+        "driverDetails.fullname": {
+          $regex: driverName,
+          $options: "i",
+        },
+      },
+    });
+  }
+
+  // 🔹 Data pipeline (projection + sort + pagination)
+  const dataPipeline: any[] = [
+    ...basePipeline,
     {
       $project: {
         _id: 1,
@@ -181,19 +230,29 @@ async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
         "driverDetails.fullname": 1,
         createdAt: 1,
         updatedAt: 1,
-      }
+      },
     },
-
+    { $sort: { createdAt: -1 } },
     { $skip: skip },
     { $limit: limit },
-  ]);
+  ];
 
-  // Step 3: Count total
-  const total = await this.databaseService.repositories.routeModel.countDocuments({
-    schoolId: schoolIdString,
-  });
+  const routes =
+    await this.databaseService.repositories.routeModel.aggregate(
+      dataPipeline,
+    );
 
-  // ✅ Step 4: Return result in same structure
+  // 🔹 Count pipeline (same filters, just count)
+  const countPipeline: any[] = [...basePipeline, { $count: "total" }];
+
+  const countResult =
+    await this.databaseService.repositories.routeModel.aggregate(
+      countPipeline,
+    );
+
+  const total = countResult[0]?.total || 0;
+
+  // 🔹 Response
   return {
     message: "Routes fetched successfully",
     data: routes,
@@ -201,10 +260,11 @@ async getAllRoutesByAdmin(adminId: string, page = 1, limit = 10) {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit)
-    }
+      totalPages: Math.ceil(total / limit),
+    },
   };
 }
+
 
 
 async getRouteById(adminId: string, routeId: string) {

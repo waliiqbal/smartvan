@@ -28,14 +28,16 @@ export class ReportController {
 
    @UseGuards(AuthGuard('jwt')) // Token guard
   @Get("getComplainsByAdmin")
-  async getComplainsByAdmin( @Req() req: any,
-   @Query('page') page: string,
+  async getComplainsByAdmin( 
+    @Req() req: any,
+    @Query() query: any,
+    @Query('page') page: string,
   @Query('limit') limit: string,
 ) {
     const adminId = req.user.userId;
      const pageNumber = page ? parseInt(page) : 1;
     const limitNumber = limit ? parseInt(limit) : 10;
-    return this.reportService.getReportsForAdmin( adminId, req?.user?.role, pageNumber, limitNumber);
+    return this.reportService.getReportsForAdmin( adminId, req?.user?.role, query);
   }
 
   

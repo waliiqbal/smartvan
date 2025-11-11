@@ -32,6 +32,7 @@ async getRoutes(
   @Req() req: any, // JWT se user info aayega
   @Query('page') page: string,
   @Query('limit') limit: string,
+  @Query() query: any,
 ) {
   // JWT se adminId nikal lo
   const adminId = req.user.userId;
@@ -45,7 +46,7 @@ async getRoutes(
   const limitNumber = limit ? parseInt(limit) : 10;
 
   // service function call with pagination
-  return this.routetService.getAllRoutesByAdmin(adminId, pageNumber, limitNumber);
+  return this.routetService.getAllRoutesByAdmin(adminId, query);
 
 
 }

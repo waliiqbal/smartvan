@@ -374,8 +374,8 @@ async getDriverKids(
   // 🔹 Trip validate
   const tripObjectId = new Types.ObjectId(tripId);
   const trip = await this.databaseService.repositories.TripModel.findById(tripObjectId);
-  if (!trip || trip.status !== 'ongoing') {
-    throw new BadRequestException('Trip not found or not ongoing');
+  if (!trip) {
+    throw new BadRequestException('Trip not found ');
   }
 
   // 🔹 Pagination calculate

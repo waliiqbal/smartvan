@@ -92,6 +92,7 @@ async pickStudent(driverId, dto: PickStudentDto) {
     throw new BadRequestException('Van not assigned to this driver');
   }
   const trip = await this.databaseService.repositories.TripModel.findById(dto.tripId);
+  
   if (!trip) {
     throw new NotFoundException('Trip not found');
   }
@@ -102,8 +103,8 @@ async pickStudent(driverId, dto: PickStudentDto) {
 }
   // Push new kid pickup data
   trip.kids.push({
-   kidId: dto.kidId,
-    lat: dto.lat,
+    kidId: dto.kidId,
+    lat:  dto.lat,
     long: dto.long,
     time: dto.time || new Date(),
     status: 'picked',
@@ -259,6 +260,7 @@ async getTripsByAdmin(
     { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
+        driverId: { $ifNull: [ { $toString: "$driver._id" }, "" ] },
         driverName: { $ifNull: ["$driver.fullname", ""] },
         carNumber: { $ifNull: ["$van.carNumber", ""] }
       }

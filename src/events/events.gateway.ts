@@ -163,9 +163,9 @@ async updateLocation(
     @MessageBody() data: { tripId: string },
     @ConnectedSocket() socket: CustomSocket,
   ) {
-    if (socket.decoded_token.userType !== 'parent') {
-      return;
-    }
+    // if (socket.decoded_token.userType !== 'parent') {
+    //   return;
+    // }
     const { tripId } = data;
     socket.join(tripId);
     console.log(`Parent ${socket?.decoded_token?.userId || socket?.decoded_token?.sub} joined trip room: ${tripId}`);

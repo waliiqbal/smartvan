@@ -10,11 +10,16 @@ export class Trip {
   @Prop({ type: String, required: true })
   vanId: string;
 
+   @Prop({ type: String, required: true })
+  routeId: string;
+
   @Prop({ type: String, required: true })
   schoolId: string;
 
   @Prop({ type: String, enum: ['pick', 'drop'], required: true })
   type: string;
+
+
 
   // Start point of trip
   @Prop({ type: Object, default: {} })

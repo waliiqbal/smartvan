@@ -41,87 +41,203 @@ export class RouteService {
 
   }
 
-  async getAssignedTripByDriver(driverId: string) {
+//   async getAssignedTripByDriver(driverId: string) {
+//   if (!driverId) {
+//     throw new UnauthorizedException('Invalid driver token');
+//   }
+
+//   // Step 1: Driver find karo (sirf name lo)
+//   const driver = await this.databaseService.repositories.driverModel.findById(
+//     new Types.ObjectId(driverId),
+//     { fullname: 1 }
+//   );
+
+//   if (!driver) {
+//     throw new BadRequestException('Driver not found');
+//   }
+
+//   // Step 2: Van find karo driverId se
+//   const van = await this.databaseService.repositories.VanModel.findOne({
+//     driverId: new Types.ObjectId(driverId),
+//   },
+//    { assignRoute: 1 , carNumber: 1  }
+// );
+
+//   if (!van) {
+//     throw new BadRequestException('Van not found for this driver');
+//   }
+
+//   // Step 3: Route find karo based on vanId (string comparison)
+//   const route = await this.databaseService.repositories.routeModel.findOne({
+//     vanId: van._id.toString(),
+//   });
+
+//   if (!route) {
+//     throw new BadRequestException('No route assigned to this van');
+//   }
+
+//   // ✅ Step 3.1: Check if today is active trip day (Pakistan timezone)
+// const today = new Date().toLocaleString('en-US', { 
+//   weekday: 'long', 
+//   timeZone: 'Asia/Karachi'   // Pakistan timezone set kiya
+// }).toLowerCase();  
+// // e.g. 'monday', 'tuesday', etc.
+
+// if (!route.tripDays?.[today]) {
+//   // agar aaj ka din tripDays me false ya undefined hai
+//   return {
+//     message: 'No active trip today',
+//     data: null,
+//   };
+// }
+
+
+//   // Step 4: School find karo (schoolId route me string hai)
+//   const school = await this.databaseService.repositories.SchoolModel.findById(
+//     new Types.ObjectId(route.schoolId),
+//     {  contactNumber: 1 }
+//   );
+
+//   if (!school) {
+//     throw new BadRequestException('school not found');
+//   }
+//   // Step 5: Kids count nikaalo (van._id se)
+//   const totalKids = await this.databaseService.repositories.KidModel.countDocuments({
+//     VanId: van._id,
+//   });
+
+//   // Step 6: Response ready karo
+//   return {
+//     message: 'Assigned trip fetched successfully',
+//     data: {
+//       driverName: driver.fullname,
+//       vehicleType: van.vehicleType,
+//       vehicleNumber: van.carNumber,
+//       routeId: route._id,
+//       routeTitle: route.title,
+//       tripType: route.tripType,
+//       startTime: route.startTime,
+      
+//       schoolContact: school?.contactNumber || null,
+//       totalKids,
+//     },
+//   };
+// }
+
+
+
+
+async getAssignedTripByDriver(driverId: string) {
   if (!driverId) {
     throw new UnauthorizedException('Invalid driver token');
   }
 
-  // Step 1: Driver find karo (sirf name lo)
+  // Step 1: Driver find karo
   const driver = await this.databaseService.repositories.driverModel.findById(
     new Types.ObjectId(driverId),
     { fullname: 1 }
   );
-
   if (!driver) {
     throw new BadRequestException('Driver not found');
   }
 
   // Step 2: Van find karo driverId se
-  const van = await this.databaseService.repositories.VanModel.findOne({
-    driverId: new Types.ObjectId(driverId),
-  },
-   { assignRoute: 1 , carNumber: 1  }
-);
-
+  const van = await this.databaseService.repositories.VanModel.findOne(
+    { driverId: new Types.ObjectId(driverId) },
+    { assignRoute: 1, carNumber: 1, vehicleType: 1 }
+  );
   if (!van) {
     throw new BadRequestException('Van not found for this driver');
   }
 
-  // Step 3: Route find karo based on vanId (string comparison)
-  const route = await this.databaseService.repositories.routeModel.findOne({
+  console.log(van._id)
+  // Step 3: Routes find karo
+  const routes = await this.databaseService.repositories.routeModel.find({
     vanId: van._id.toString(),
   });
-
-  if (!route) {
-    throw new BadRequestException('No route assigned to this van');
+  if (!routes || routes.length === 0) {
+    throw new BadRequestException('No routes assigned to this van');
   }
 
-  // ✅ Step 3.1: Check if today is active trip day (Pakistan timezone)
-const today = new Date().toLocaleString('en-US', { 
-  weekday: 'long', 
-  timeZone: 'Asia/Karachi'   // Pakistan timezone set kiya
-}).toLowerCase();  
-// e.g. 'monday', 'tuesday', etc.
+  console.log(routes)
 
-if (!route.tripDays?.[today]) {
-  // agar aaj ka din tripDays me false ya undefined hai
-  return {
-    message: 'No active trip today',
-    data: null,
-  };
-}
+  // ✅ Step 4: Today info (Pakistan timezone)
+  const today = new Date().toLocaleString('en-US', {
+    weekday: 'long',
+    timeZone: 'Asia/Karachi',
+  }).toLowerCase();
 
+  const todayDate = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Karachi',
+  }); // e.g. 2025-11-14
 
-  // Step 4: School find karo (schoolId route me string hai)
+  // ✅ Step 5: Active routes for today
+  const activeRoutes = routes.filter(route => route.tripDays?.[today]);
+  if (activeRoutes.length === 0) {
+    return { message: 'No active trip today', data: null };
+  }
+
+  // ✅ Step 6: School find karo
   const school = await this.databaseService.repositories.SchoolModel.findById(
-    new Types.ObjectId(route.schoolId),
-    {  contactNumber: 1 }
+    new Types.ObjectId(activeRoutes[0].schoolId),
+    { contactNumber: 1 }
   );
-
   if (!school) {
-    throw new BadRequestException('school not found');
+    throw new BadRequestException('School not found');
   }
-  // Step 5: Kids count nikaalo (van._id se)
+
+  // ✅ Step 7: Kids count
   const totalKids = await this.databaseService.repositories.KidModel.countDocuments({
     VanId: van._id,
   });
 
-  // Step 6: Response ready karo
-  return {
-    message: 'Assigned trip fetched successfully',
-    data: {
+  // ✅ Step 8: Response ready karo
+  const routeData = [];
+
+  for (const route of activeRoutes) {
+    // Step 8.1: CreatedAt se aaj ki date match karni
+    const startOfDay = new Date(todayDate + 'T00:00:00+05:00'); // start of today (PKT)
+    const endOfDay = new Date(todayDate + 'T23:59:59+05:00');   // end of today
+
+    const existingTrip = await this.databaseService.repositories.TripModel.findOne({
+      routeId: route._id.toString(),
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    const routeInfo = {
       driverName: driver.fullname,
       vehicleType: van.vehicleType,
       vehicleNumber: van.carNumber,
+      routeId: route._id,
       routeTitle: route.title,
       tripType: route.tripType,
       startTime: route.startTime,
-      
       schoolContact: school?.contactNumber || null,
       totalKids,
-    },
+    };
+
+    // agar trip mili to details do
+    if (existingTrip) {
+      routeData.push({
+        ...routeInfo,
+        tripDetails: existingTrip,
+      });
+    } else {
+      // agar trip nahi mili to null
+      routeData.push({
+        ...routeInfo,
+        tripDetails: null,
+      });
+    }
+  }
+
+  // ✅ Final response
+  return {
+    message: 'Assigned trips fetched successfully',
+    data: routeData,
   };
 }
+
 
 async getAllRoutesByAdmin(adminId: string, query: any) {
   const adminObjectId = new Types.ObjectId(adminId);

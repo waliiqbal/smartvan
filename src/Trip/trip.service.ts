@@ -44,8 +44,10 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
     driverId: driverId,
     vanId: van._id.toString(),
     schoolId: van.schoolId,
+    routeId: createTripDto.routeId,
 
     type: createTripDto.type || undefined,
+   
 
     tripStart: {
       startTime: new Date(), // fixed, DTO se nahi lena

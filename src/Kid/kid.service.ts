@@ -250,90 +250,132 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
     };
   }
 
-async getParentActiveTrips(parentId: string) {
-  // Step 1: Parent ke kids fetch karo (sirf vanIds)
-  const kids = await this.databaseService.repositories.KidModel.find(
-    { parentId: new Types.ObjectId(parentId) },
-    { VanId: 1 }
-  );
-
-  if (!kids || kids.length === 0) return [];
-
-  const vanIds = kids.map(k => k.VanId);
-  const uniqueVanIds = [...new Set(vanIds)];
-
-  // Step 2: Aggregation Trip → Van → Driver + School
-  const trips = await this.databaseService.repositories.TripModel.aggregate([
-    {
-      $match: {
-        vanId: { $in: uniqueVanIds }, // trip.vanId is string
-        status: { $ne: "end" }, // 'end' status wali trips ko exclude karo
+  async getParentActiveTrips(parentId: string) {
+    // Step 1: Parent ke kids fetch (Name + VanId)
+    const kids = await this.databaseService.repositories.KidModel.find(
+      { parentId: new Types.ObjectId(parentId) },
+      { VanId: 1, fullname: 1 }
+    );
+  
+    if (!kids || kids.length === 0) return [];
+  
+    // Step 2: Unique VanIDs extract
+    const vanIds = kids.map(k => k.VanId);
+    const uniqueVanIds = [...new Set(vanIds)];
+  
+    // Step 3: Kids ko van-wise group karo
+    const kidsByVan = kids.reduce((acc, kid) => {
+      if (!acc[kid.VanId]) acc[kid.VanId] = [];
+      acc[kid.VanId].push({
+        id: kid._id.toString(),
+        name: kid.fullname
+      });
+      return acc;
+    }, {});
+  
+    // Date filter for "today"
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+  
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+  
+    // Step 4: Trips fetch
+    const trips = await this.databaseService.repositories.TripModel.aggregate([
+      {
+        $match: {
+          vanId: { $in: uniqueVanIds },
+          status: { $ne: "end" },
+          "tripStart.startTime": {
+            $gte: todayStart,
+            $lte: todayEnd
+          }
+        }
       },
-    },
-    {
-      $lookup: {
-        from: "vans", // Van collection
-        let: { tripVanId: { $toObjectId: "$vanId" } }, // vanId string -> ObjectId
-        pipeline: [
-          {
-            $match: {
-              $expr: { $eq: ["$_id", "$$tripVanId"] },
+      {
+        $lookup: {
+          from: "vans",
+          let: { tripVanId: { $toObjectId: "$vanId" } },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$tripVanId"] } } },
+            {
+              $lookup: {
+                from: "drivers",
+                localField: "driverId",
+                foreignField: "_id",
+                as: "driver"
+              }
             },
-          },
-          {
-            $lookup: {
-              from: "drivers",
-              localField: "driverId",
-              foreignField: "_id",
-              as: "driver",
-            },
-          },
-          { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
-          {
-            $lookup: {
-              from: "schools",
-              let: { schoolIdStr: "$schoolId" }, // van.schoolId is string
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $eq: ["$_id", { $toObjectId: "$$schoolIdStr" }],
-                    },
+            { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+            {
+              $lookup: {
+                from: "schools",
+                let: { schoolIdStr: "$schoolId" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$_id", { $toObjectId: "$$schoolIdStr" }]
+                      }
+                    }
                   },
-                },
-                { $project: { contactNumber: 1 } },
-              ],
-              as: "school",
+                  { $project: { contactNumber: 1 } }
+                ],
+                as: "school"
+              }
             },
-          },
-          { $unwind: { path: "$school", preserveNullAndEmptyArrays: true } },
-        ],
-        as: "van",
+            { $unwind: { path: "$school", preserveNullAndEmptyArrays: true } }
+          ],
+          as: "van"
+        }
       },
-    },
-    { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
-    {
-      $project: {
-        tripId: "$_id",
-        startTime: "$tripStart.startTime",
-        status: 1,
-        type: 1,
-        locations: 1,
-        carNumber: "$van.carNumber",
-        assignRoute: "$van.assignRoute",
-        driverFullname: "$van.driver.fullname",
-        driverImage: "$van.driver.image",
-        driverPhoneNo: "$van.driver.phoneNo",
-        schoolContact: "$van.school.contactNumber",
-        _id: 0
-      },
-    },
-  ]);
-
-  return {
-    data: trips
-  };
-}
+      { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          tripId: "$_id",
+          vanId: "$vanId",
+          kids: 1, // <<----- IMPORTANT: return kids from DB
+          startTime: "$tripStart.startTime",
+          status: 1,
+          type: 1,
+          locations: 1,
+          carNumber: "$van.carNumber",
+          assignRoute: "$van.assignRoute",
+          driverFullname: "$van.driver.fullname",
+          driverImage: "$van.driver.image",
+          driverPhoneNo: "$van.driver.phoneNo",
+          schoolContact: "$van.school.contactNumber",
+          _id: 0
+        }
+      }
+    ]);
+  
+    // Step 5: Merge kids status
+    const tripsWithKids = trips.map(t => {
+      const vanKids = kidsByVan[t.vanId] || [];
+  
+      const kidsWithStatus = vanKids.map(k => {
+        const tripKid = t.kids?.find(x => x.kidId === k.id);
+  
+        return {
+          ...k,
+          pickupStatus: tripKid? true : false ,
+          pickupTime: tripKid?.time || null,
+          lat: tripKid?.lat || null,
+          long: tripKid?.long || null
+        };
+      });
+  
+      return {
+        ...t,
+        kids: kidsWithStatus
+      };
+    });
+  
+    return { data: tripsWithKids };
+  }
+  
+  
 
 async getParentDriversWithSchool(parentId: string) {
   const Kid = this.databaseService.repositories.KidModel;

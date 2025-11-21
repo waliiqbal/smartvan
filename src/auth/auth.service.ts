@@ -161,7 +161,8 @@ async loginUser(loginData: any) {
       data: {
       token,
       userId: user._id,
-      fullname: user.fullname
+      fullname: user.fullname,
+      isVerified: user.isVerified
     
       },
     };
@@ -257,6 +258,37 @@ async verifyOtp(email: string, userType: string, otp: string) {
   }
 }
 
+async verifyOtpForgot(email: string, userType: string, otp: string) {
+  try {
+    const userModel = this.getUserModel(userType);
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    
+
+    if (user.otp !== otp) {
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    const currentTime = new Date();
+    if (user.otpExpiresAt && currentTime > user.otpExpiresAt) {
+      throw new UnauthorizedException('OTP has expired');
+    }
+
+    
+   
+    return {
+      message: 'OTP verified successfully',
+      data: null,
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'OTP verification failed');
+  }
+}
+
 async getProfile(userId: string, userType: string) {
   try {
     if (!userId || !userType) {
@@ -288,7 +320,7 @@ async getProfile(userId: string, userType: string) {
 }
 
 
-async socialLogin(authProvider: string, token: string, userType: string, userName: string, email: string, socialId: string, userImage: string) {
+async socialLogin(authProvider: string, token: string, userType: string, userName: string, email: string, socialId: string, image: string, fcmToken: string) {
   try {
     if(!userType || !socialId){
        throw new UnauthorizedException('userType and socialId must be given');
@@ -321,7 +353,7 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
         authProvider,
         userType,
         isVerified: true,
-        avatar: userImage
+        image: image
       });
 
       await user.save();
@@ -333,6 +365,19 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
       );
     }
 
+    if (fcmToken) {
+      if (!user.fcmToken) {
+        // Agar DB me fcmToken nahi hai to save karo
+        user.fcmToken = fcmToken;
+        await user.save();
+      } else if (user.fcmToken !== fcmToken) {
+        // Agar DB wala different hai to update karo
+        user.fcmToken = fcmToken;
+        await user.save();
+      }
+      // Agar same hai to kuch mat karo
+    }
+
 
     // ✅ Step 7: Generate token
     const payload = {
@@ -340,6 +385,8 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
       email: user.email,
       userType: user.userType,
     };
+
+    
 
     const jwtToken = this.jwtService.sign(payload, { expiresIn: '1h' });
 
@@ -351,6 +398,7 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
       },
     };
   } catch (error) {
+    console.log(error);
     throw new UnauthorizedException(error.message || 'Social login failed');
   }
 }

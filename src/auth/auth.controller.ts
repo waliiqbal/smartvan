@@ -37,6 +37,13 @@ export class AuthController {
     return this.authService.verifyOtp(email, userType, otp);
   }
 
+
+  @Post('verifyOtpForgot') // ✅ POST /auth/resend-otp
+  async verifyOtpForgot(@Body() body: { email: string; userType: string, otp: string }) {
+    const { email, userType, otp } = body;
+    return this.authService.verifyOtpForgot(email, userType, otp);
+  }
+
   @UseGuards(AuthGuard('jwt'))
     @Get('getProfile')
   async getKids(@Req() req: any) {
@@ -45,9 +52,9 @@ export class AuthController {
   }
  @Post('social-login')
   async socialLogin(@Body() body: any) {
-  const { authProvider, token, userType, userName, email, socialId, userImage } = body;
+  const { authProvider, token, userType, userName, email, socialId, image, fcmToken } = body;
   
-  return this.authService.socialLogin(authProvider, token, userType, userName, email, socialId, userImage);
+  return this.authService.socialLogin(authProvider, token, userType, userName, email, socialId, image, fcmToken);
 }
 
  @Post('forgot-password')

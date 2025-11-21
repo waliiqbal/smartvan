@@ -18,6 +18,10 @@ export class Admin {
    @Prop()
   otp: string;
   
+  
+  @Prop()
+  image: string;
+  
    @Prop()
    otpExpiresAt: Date;
 

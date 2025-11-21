@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { DatabaseService } from 'src/database/databaseservice';
 import { Types } from 'mongoose';
 import { CreateRouteDto } from './dto/createRoutedto';
+import { Trip } from 'src/database/schema';
 
 
 @Injectable()
@@ -208,7 +209,10 @@ async getAssignedTripByDriver(driverId: string) {
       driverName: driver.fullname,
       vehicleType: van.vehicleType,
       vehicleNumber: van.carNumber,
+      scheduleDate: todayDate,
       routeId: route._id,
+      tripStatus: existingTrip?.status || "start",
+      TripStarted: existingTrip ? true: true,
       routeTitle: route.title,
       tripType: route.tripType,
       startTime: route.startTime,

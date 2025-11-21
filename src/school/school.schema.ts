@@ -33,6 +33,9 @@ export class School {
   schoolName: string;
 
   @Prop()
+  schoolImage: string;
+
+  @Prop()
   schoolEmail: string;
 
   @Prop()

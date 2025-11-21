@@ -202,6 +202,7 @@ async getAlertById(adminId: string, alertId: string) {
     status: alert.status,
     date: alert.date,
     schoolId: alert.schoolId,
+    schoolName: school?.schoolName
   };
 
   if (alert.VanId) {

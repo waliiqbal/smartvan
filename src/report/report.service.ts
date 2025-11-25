@@ -281,11 +281,43 @@ async getReportsForAdmin(
         },
       },
 
+      // School lookup
+        {
+          $lookup: {
+            from: "schools",
+            let: { sId: "$schoolId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $ne: ["$$sId", null] },
+                      { $ne: ["$$sId", ""] },
+                      { $eq: ["$_id", { $toObjectId: "$$sId" }] }
+                    ]
+                  }
+                }
+              },
+              { $project: { name: 1 } }
+            ],
+            as: "school"
+          }
+        },
+        {
+          $unwind: {
+            path: "$school",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+
+
+
       // Final projection
       {
         $project: {
           _id: 1,
           schoolId: 1,
+          schoolName: "$school.name",
           issueType: 1,
           description: 1,
           image: 1,

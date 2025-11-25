@@ -32,7 +32,7 @@ async createAdminAndSchool(body: any) {
   });
 
   if (existingAdmin) {
-    throw new Error("Admin with this email already exists");
+    throw new BadRequestException("Admin with this email already exists");
   }
 
   const randomPassword = crypto.randomBytes(6).toString('hex'); // 12 char ka password

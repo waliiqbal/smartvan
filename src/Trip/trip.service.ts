@@ -279,20 +279,50 @@ async getTripsByAdmin(
     { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
-        driverId: { $ifNull: [ { $toString: "$driver._id" }, "" ] },
+        driverId: { $ifNull: [{ $toString: "$driver._id" }, ""] },
         driverName: { $ifNull: ["$driver.fullname", ""] },
         carNumber: { $ifNull: ["$van.carNumber", ""] }
+      }
+    },
+  
+    // ⭐ NEW: SCHOOL LOOKUP ADDED HERE ⭐
+    {
+      $addFields: {
+        schoolObjectId: {
+          $cond: {
+            if: { $and: [{ $ne: ["$schoolId", null] }, { $ne: ["$schoolId", ""] }] },
+            then: { $toObjectId: "$schoolId" },
+            else: null
+          }
+        }
+      }
+    },
+    {
+      $lookup: {
+        from: "schools",
+        localField: "schoolObjectId",
+        foreignField: "_id",
+        as: "school"
+      }
+    },
+    { $unwind: { path: "$school", preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        schoolName: { $ifNull: ["$school.name", ""] }
       }
     },
     {
       $project: {
         van: 0,
-        driver: 0
+        driver: 0,
+        school: 0
       }
     },
+  
     { $skip: skip },
     { $limit: limit }
   ];
+  
 
   const trips = await this.databaseService.repositories.TripModel.aggregate(pipeline);
 

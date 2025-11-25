@@ -52,8 +52,22 @@ async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
 async getKids(userId: string, userType: string) {
   // Step 1: Sirf parent access kare
   if (userType !== 'parent') {
-    throw new UnauthorizedException('Only parent can view their kids');
-  }
+    const driver = await this.databaseService.repositories.driverModel.findById(userId);
+  if (!driver) throw new UnauthorizedException('Driver not found');
+
+  // 🔹 Driver ki van
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id });
+  if (!van) throw new BadRequestException('Van not found for this driver');
+
+  // Step 3: Parent ID se bachay fetch karo
+  const kids = await this.databaseService.repositories.KidModel.find({ VanId: van._id.toString() });
+
+      // Step 4: Response wrap in data
+      return {
+        message: 'Kids fetched successfully',
+        data: kids,
+      };
+    }
 
   // Step 2: Parent find karo (ensure parent exists)
   const parent = await this.databaseService.repositories.parentModel.findById(userId);
@@ -254,7 +268,7 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
     // Step 1: Parent ke kids fetch (Name + VanId)
     const kids = await this.databaseService.repositories.KidModel.find(
       { parentId: new Types.ObjectId(parentId) },
-      { VanId: 1, fullname: 1 }
+      { VanId: 1, fullname: 1, image: 1 }
     );
   
     if (!kids || kids.length === 0) return [];
@@ -268,7 +282,8 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
       if (!acc[kid.VanId]) acc[kid.VanId] = [];
       acc[kid.VanId].push({
         id: kid._id.toString(),
-        name: kid.fullname
+        name: kid.fullname,
+        image: kid?.image || "",
       });
       return acc;
     }, {});

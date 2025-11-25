@@ -39,7 +39,19 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
     throw new BadRequestException('Van not assigned to this driver');
   }
 
-  const getTrip = await this.databaseService.repositories.TripModel.findOne({ routeId: createTripDto.routeId });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const getTrip = await this.databaseService.repositories.TripModel.findOne({ 
+    routeId: createTripDto.routeId, 
+    createdAt: {
+    $gte: today,     // today 00:00:00
+    $lt: tomorrow    // next day 00:00:00
+      } 
+    });
     if(getTrip){
       throw new BadRequestException('this schedule trip already started');
     }

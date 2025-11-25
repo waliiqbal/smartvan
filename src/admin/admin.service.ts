@@ -69,6 +69,8 @@ async createAdminAndSchool(body: any) {
     .findById(school._id)
     .select('-createdAt -updatedAt -__v');
 
+    await this.otpService.sendPassword(adminInfo.email, randomPassword);
+
   return {
     message: 'Admin and school created successfully.',
     data: {
@@ -394,10 +396,15 @@ async getProfile(userId: string) {
 
 async getallschool() {
 
-  const school =  await this.databaseService.repositories.SchoolModel.find().exec();
+  const schools = await this.databaseService.repositories.SchoolModel
+      .find()
+      .sort({ _id: -1 }) 
+      .lean();
+
+      
     return {
       message: 'All school fetched successfully',
-      data: school,
+      data: schools,
     }; // DB se direct fetch
   }
 

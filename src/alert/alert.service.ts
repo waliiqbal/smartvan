@@ -24,74 +24,116 @@ export class alertService {
   ) {}
 
 
-async addAlert(addAlertDto: AddAlertDto, adminId: string) {
-  const { alertType, vanId, message, recipientType } = addAlertDto;
-
-  // 1️⃣ Validate school from admin
-  const adminObjectId = new Types.ObjectId(adminId);
-  const school = await this.databaseService.repositories.SchoolModel.findOne({
-    admin: adminObjectId,
-  });
-
-  if (!school) {
-    throw new UnauthorizedException('Invalid school or admin not authorized');
-  }
-
-  // 2️⃣ Title handling
-
-
-  const notificationData: any = {
-    schoolId: school._id,
+  async addAlert(addAlertDto: AddAlertDto, adminId: string) {
+    const { alertType, vanId, message, recipientType } = addAlertDto;
   
-    message: message || '',
-    alertType,
-    recipientType,
-    date: new Date(),
-  };
-
-  // 3️⃣ SPECIFIC_VAN → add driverId
-  if (recipientType === 'SPECIFIC_VAN') {
-    if (!vanId) {
-      throw new BadRequestException('vanId is required for SPECIFIC_VAN alerts');
+    // 1️⃣ Validate school
+    const adminObjectId = new Types.ObjectId(adminId);
+    const school = await this.databaseService.repositories.SchoolModel.findOne({
+      admin: adminObjectId,
+    });
+  
+    if (!school) {
+      throw new UnauthorizedException("Invalid school or admin not authorized");
     }
-
+  
+    const notificationData: any = {
+      schoolId: school._id,
+      message: message || "",
+      alertType,
+      recipientType,
+      date: new Date(),
+    };
+  
+    let targetUsersFCM: string[] = []; // ⭐ Store all tokens here
+  
+    // 2️⃣ SPECIFIC_VAN → For 1 driver only
+    if (recipientType === "SPECIFIC_VAN") {
+      if (!vanId) {
+        throw new BadRequestException("vanId is required for SPECIFIC_VAN alerts");
+      }
+  
       const vanObjectId = new Types.ObjectId(vanId);
-
-    const van = await this.databaseService.repositories.VanModel.findById(vanId);
-    if (!van) {
-      throw new NotFoundException('Van not found');
+  
+      const van = await this.databaseService.repositories.VanModel.findById(
+        vanObjectId
+      );
+  
+      if (!van) throw new NotFoundException("Van not found");
+  
+      if (!van.driverId)
+        throw new NotFoundException("Driver not assigned to this van");
+  
+      notificationData.VanId = vanObjectId;
+  
+      // ⭐ DRIVER FCM
+      const driver = await this.databaseService.repositories.driverModel.findOne({
+        _id: van.driverId,
+        isDelete: false,
+      });
+  
+      if (driver?.fcmToken) {
+        targetUsersFCM.push(driver.fcmToken);
+      }
     }
-
-    if (!van.driverId) {
-      throw new NotFoundException('Driver not assigned to this van');
+  
+    // 3️⃣ ALL_DRIVERS → Fetch all drivers of the school
+    else if (recipientType === "ALL_DRIVERS") {
+      // 1. School vans
+      const vans = await this.databaseService.repositories.VanModel.find({
+        schoolId: school._id.toString(),
+        driverId: { $ne: null },
+      });
+  
+      const driverIds = vans.map((v) => v.driverId);
+  
+      const drivers = await this.databaseService.repositories.driverModel.find({
+        _id: { $in: driverIds },
+        userType: "driver",
+        isDelete: false,
+        fcmToken: { $ne: null },
+      });
+  
+      targetUsersFCM = drivers.map((d) => d.fcmToken);
     }
-
-   
-    notificationData.VanId = vanObjectId;
-  }
-   
   
-
-  // 4️⃣ ALL_DRIVERS or ALL_PARENTS → no driverId or parentId
-  else if (recipientType === 'ALL_DRIVERS' || recipientType === 'ALL_PARENTS') {
+    // 4️⃣ ALL_PARENTS → Fetch all parents of the school
+    else if (recipientType === "ALL_PARENTS") {
+      // 1. Kids of the school
+      const kids = await this.databaseService.repositories.KidModel.find({
+        schoolId: school._id.toString(),
+      });
   
-  }
-
- 
-  else {
-    throw new BadRequestException('Invalid recipientType value');
-  }
-
+      const parentIds = kids.map((k) => k.parentId);
   
-  const notification = new this.databaseService.repositories.notificationModel(notificationData);
-  const savedNotification = await notification.save();
-
-  // 7️⃣ Return response
-  return {
-    message: 'Alert created successfully',
-    data: savedNotification,
-  };
-}
+      const parents = await this.databaseService.repositories.parentModel.find({
+        _id: { $in: parentIds },
+        userType: "parent",
+        isDelete: false,
+        fcmToken: { $ne: null },
+      });
+  
+      targetUsersFCM = parents.map((p) => p.fcmToken);
+    }
+  
+    // 5️⃣ Invalid Type
+    else {
+      throw new BadRequestException("Invalid recipientType value");
+    }
+  
+    // 6️⃣ Save Notification
+    const notification =
+      new this.databaseService.repositories.notificationModel(notificationData);
+    const savedNotification = await notification.save();
+  
+    // 7️⃣ Final Response
+    return {
+      message: "Alert created successfully",
+      data: savedNotification,
+      targetFCMs: targetUsersFCM, // ⭐ You will send notification using this
+    };
+  }
+  
 
 async getAlerts(adminId: string, page = 1, limit = 10) {
   const skip = (page - 1) * limit;

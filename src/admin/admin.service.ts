@@ -601,6 +601,7 @@ async getKids(AdminId: string, query: any) {
   // ---------- Data pipeline (projection + pagination) ----------
   const dataPipeline: any[] = [
     ...basePipeline,
+    { $sort: { createdAt: -1 } },
     {
       $project: {
         student: {

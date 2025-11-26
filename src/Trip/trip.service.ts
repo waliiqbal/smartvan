@@ -248,6 +248,8 @@ async getTripsByAdmin(
         ...(status ? { status } : {})
       }
     },
+  
+    // Convert vanId to objectId
     {
       $addFields: {
         vanObjectId: {
@@ -259,6 +261,21 @@ async getTripsByAdmin(
         }
       }
     },
+  
+    // ⭐ ROUTE ID → ObjectId
+    {
+      $addFields: {
+        routeObjectId: {
+          $cond: {
+            if: { $and: [{ $ne: ["$routeId", null] }, { $ne: ["$routeId", ""] }] },
+            then: { $toObjectId: "$routeId" },
+            else: null
+          }
+        }
+      }
+    },
+  
+    // Van Lookup
     {
       $lookup: {
         from: "vans",
@@ -268,6 +285,8 @@ async getTripsByAdmin(
       }
     },
     { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
+  
+    // Driver lookup
     {
       $lookup: {
         from: "drivers",
@@ -277,15 +296,34 @@ async getTripsByAdmin(
       }
     },
     { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+  
+    // ⭐ ROUTE LOOKUP
+    {
+      $lookup: {
+        from: "routes",
+        localField: "routeObjectId",
+        foreignField: "_id",
+        as: "route"
+      }
+    },
+    { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
+  
+    // Add fields
     {
       $addFields: {
         driverId: { $ifNull: [{ $toString: "$driver._id" }, ""] },
         driverName: { $ifNull: ["$driver.fullname", ""] },
-        carNumber: { $ifNull: ["$van.carNumber", ""] }
+        driverImage: { $ifNull: ["$driver.image", ""] },
+        carNumber: { $ifNull: ["$van.carNumber", ""] },
+        carName: { $ifNull: ["$van.vehicleType", ""] },
+  
+        // ⭐ Added fields for route
+        routeTitle: { $ifNull: ["$route.title", ""] },
+        routeTripType: { $ifNull: ["$route.tripType", ""] }
       }
     },
   
-    // ⭐ NEW: SCHOOL LOOKUP ADDED HERE ⭐
+    // ⭐ School Join (your existing code)
     {
       $addFields: {
         schoolObjectId: {
@@ -311,17 +349,22 @@ async getTripsByAdmin(
         schoolName: { $ifNull: ["$school.name", ""] }
       }
     },
+  
+    // Project
     {
       $project: {
         van: 0,
         driver: 0,
-        school: 0
+        school: 0,
+        route: 0,
+        routeObjectId: 0
       }
     },
   
     { $skip: skip },
     { $limit: limit }
   ];
+  
   
 
   const trips = await this.databaseService.repositories.TripModel.aggregate(pipeline);

@@ -119,7 +119,6 @@ async pickStudent(driverId, dto: PickStudentDto) {
     throw new BadRequestException("Van does not belong to this trip");
   }
 
-  // Kid added to trip
   trip.kids.push({
     kidId: dto.kidId,
     lat: dto.lat,
@@ -222,8 +221,10 @@ async endTrip(driverId, dto: EndTripDto) {
     const parent = await this.databaseService.repositories.parentModel.findById(kidDoc.parentId);
     if (!parent) continue;
 
-    const title = "Student Reached School";
-    const message = `${kidDoc.fullname} has safely reached the school.`;
+    
+const title = "Student Dropped";
+const message = `${kidDoc.fullname} has been safely dropped.`;
+
 
 
     if (parent.fcmToken) {

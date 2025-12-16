@@ -25,7 +25,7 @@ export class alertService {
 
 
   async addAlert(addAlertDto: AddAlertDto, adminId: string) {
-    const { alertType, vanId, message, recipientType } = addAlertDto;
+    const { alertType, vanId, message, recipientType,  } = addAlertDto;
   
     // 1️⃣ Validate school
     const adminObjectId = new Types.ObjectId(adminId);
@@ -45,9 +45,9 @@ export class alertService {
       date: new Date(),
     };
   
-    let targetUsersFCM: string[] = []; // ⭐ Store all tokens here
+    let targetUsersFCM: string[] = []; 
   
-    // 2️⃣ SPECIFIC_VAN → For 1 driver only
+    
     if (recipientType === "SPECIFIC_VAN") {
       if (!vanId) {
         throw new BadRequestException("vanId is required for SPECIFIC_VAN alerts");
@@ -77,9 +77,9 @@ export class alertService {
       }
     }
   
-    // 3️⃣ ALL_DRIVERS → Fetch all drivers of the school
+   
     else if (recipientType === "ALL_DRIVERS") {
-      // 1. School vans
+   
       const vans = await this.databaseService.repositories.VanModel.find({
         schoolId: school._id.toString(),
         driverId: { $ne: null },
@@ -116,12 +116,12 @@ export class alertService {
       targetUsersFCM = parents.map((p) => p.fcmToken);
     }
   
-    // 5️⃣ Invalid Type
+   
     else {
       throw new BadRequestException("Invalid recipientType value");
     }
   
-    // 6️⃣ Save Notification
+   
     const notification =
       new this.databaseService.repositories.notificationModel(notificationData);
     const savedNotification = await notification.save();
@@ -130,7 +130,7 @@ export class alertService {
     return {
       message: "Alert created successfully",
       data: savedNotification,
-      targetFCMs: targetUsersFCM, // ⭐ You will send notification using this
+      targetFCMs: targetUsersFCM,
     };
   }
   
@@ -138,7 +138,7 @@ export class alertService {
 async getAlerts(adminId: string, page = 1, limit = 10) {
   const skip = (page - 1) * limit;
 
-  // 1️⃣ Admin se schoolId nikaalo
+  
   const adminObjectId = new Types.ObjectId(adminId);
 
   const school = await this.databaseService.repositories.SchoolModel.findOne({
@@ -292,12 +292,12 @@ async editAlert(adminId: string, alertId: string, updateData: any) {
   // 3️⃣ Update fields prepare karo
   const { alertType, vanId, message, recipientType } = updateData;
 
-  // ye basic fields update karenge agar aaye ho
+ 
   if (alertType) existingAlert.alertType = alertType;
   if (message) existingAlert.message = message;
   if (recipientType) existingAlert.recipientType = recipientType;
 
-  // 4️⃣ Agar type SPECIFIC_VAN ho gaya
+  
   if (recipientType === 'SPECIFIC_VAN') {
     if (!vanId) {
       throw new BadRequestException('vanId is required for SPECIFIC_VAN alerts');
@@ -372,6 +372,88 @@ async deleteAlert(adminId: string, alertId: string) {
 }
 
 
+
+async getAlertsForParent(parentId: string) {
+  const kids = await this.databaseService.repositories.KidModel.find({
+    parentId: new Types.ObjectId(parentId), 
+  });
+
+  if (!kids.length) {
+    return {
+      message: 'No alerts found for this parent',
+      data: { notifications: [] },
+    };
+  }
+
+  const vanIds = kids
+    .map(k => k.VanId)
+    .filter(v => v)
+    .map(v => new Types.ObjectId(v)); 
+
+  const schoolIds = kids.map(k => new Types.ObjectId(k.schoolId)); 
+
+  const notifications = await this.databaseService.repositories.notificationModel.find({
+    $and: [
+      { schoolId: { $in: schoolIds } },
+      { $or: [
+          { recipientType: 'ALL_PARENTS' },
+          { recipientType: 'SPECIFIC_VAN', VanId: { $in: vanIds } }
+        ]
+      }
+    ]
+  }).sort({ date: -1 });
+
+  return {
+    message: notifications.length
+      ? 'Alerts fetched successfully'
+      : 'No alerts found for this parent',
+    data: { notifications },
+  };
+}
+
+async getAlertsForDriver(driverId: string) {
+
+  const driver = await this.databaseService.repositories.driverModel.findById(
+    driverId
+  );
+
+  if (!driver) {
+    return {
+      message: "Driver not found",
+      data: { notifications: [] }
+    };
+  }
+
+  
+  const notifications =
+    await this.databaseService.repositories.notificationModel
+      .find({ recipientType: "ALL_DRIVERS" })
+      .sort({ date: -1 });
+
+  return {
+    message: notifications.length
+      ? "Driver alerts fetched successfully"
+      : "No alerts found for drivers",
+    data: { notifications },
+  };
+}
+
+async getDriverNotificationsByParent(parentId: string) {
+
+   const parentObjectId = new Types.ObjectId(parentId);
+
+    const notifications = await this.databaseService.repositories.notificationModel.find({
+      parentId: parentObjectId,
+      type: 'driver', 
+    }).sort({ createdAt: -1 });
+
+   
+
+    return {
+      message: 'Driver notifications fetched successfully',
+      data: notifications,
+    };
+  }
 
 
 }

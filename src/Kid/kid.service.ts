@@ -210,28 +210,7 @@ async verifyStudentByAdmin(kidId: string, adminId: string) {
 
    const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
 
-if (!parent?.fcmToken) {
-  return {
-    message: 'FCM token not found for this parent',
-    success: false,
-  };
-}
 
-const payload = {
-  notification: {
-    title: 'Student Verified',
-    body: 'Your kid has been successfully verified by the school.',
-  },
-  data: {
-    actionType: 'STUDENT_VERIFIED', // frontend ke liye useful
-  },
-};
-
-// 🔹 Send push notification + save in DB
-await this.firebaseAdminService.sendToDevice(parent.fcmToken, payload, {
-  parentId: kid.parentId.toString(),
-  actionType: 'STUDENT_VERIFIED',
-});
   return {
     message: 'Student verified successfully',
     data: updatedKid,

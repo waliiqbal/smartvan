@@ -80,6 +80,31 @@ async deleteAlert(@Req() req: any, @Body('alertId') alertId: string) {
   return this.AlertService.deleteAlert(adminId, alertId);
 }
 
+
+  @UseGuards(AuthGuard('jwt'))
+    @Get('getNotificationByParent')
+  async getKids(@Req() req: any) {
+    const userId = req.user.userId; // 👈 token se extract hua
+    return this.AlertService.getAlertsForParent(userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+@Get('getNotificationForDriver')
+async getAlertsForDriver(@Req() req: any) {
+  const  userId  = req.user.userId; 
+
+  return this.AlertService.getAlertsForDriver(userId);
+}
+
+
+ @UseGuards(AuthGuard('jwt'))
+  @Get('getDriverNotificationByParent')
+  async getDriverNotifications(@Req() req: any) {
+    const parentId = req.user.userId; // JWT payload me parentId
+    return this.AlertService.getDriverNotificationsByParent(parentId);
+  }
+
+
 }
 
 

@@ -25,6 +25,9 @@ export class Admin {
    @Prop()
    otpExpiresAt: Date;
 
+   @Prop()
+   refreshTokenExpiresAt: Date;
+
 
   @Prop()
   age: number;

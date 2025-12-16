@@ -15,10 +15,12 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { DatabaseService } from "src/database/databaseservice";
 import { EndTripDto } from './dto/tripend.dto';
 import { getLocationDto } from './dto/getLocations';
+import { FirebaseAdminService } from 'src/notification/firebase-admin.service';
 @Injectable()
 export class TripService {
   constructor(
    private databaseService: DatabaseService,
+   private firebaseAdminService: FirebaseAdminService
   ) {} 
 
 
@@ -27,13 +29,13 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
 
   const driverObjectId = new Types.ObjectId(driverId);
   console.log(driverObjectId)
-  // 🔍 Step 1: Driver fetch karo
+  
   const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
   if (!driver) {
     throw new UnauthorizedException('Driver not found');
   }
 
-  // 🔍 Step 2: Van fetch karo
+
  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
   if (!van) {
     throw new BadRequestException('Van not assigned to this driver');
@@ -48,15 +50,15 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
   const getTrip = await this.databaseService.repositories.TripModel.findOne({ 
     routeId: createTripDto.routeId, 
     createdAt: {
-    $gte: today,     // today 00:00:00
-    $lt: tomorrow    // next day 00:00:00
+    $gte: today,     
+    $lt: tomorrow   
       } 
     });
     if(getTrip){
       throw new BadRequestException('this schedule trip already started');
     }
   
-  // 🔍 Step 3: Trip create karo
+
   const newTrip = new this.databaseService.repositories.TripModel({
     driverId: driverId,
     vanId: van._id.toString(),
@@ -67,7 +69,7 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
    
 
     tripStart: {
-      startTime: new Date(), // fixed, DTO se nahi lena
+      startTime: new Date(),
       lat: createTripDto.lat,
       long: createTripDto.long,
     },
@@ -76,12 +78,12 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
 
     kids: [],
 
-    // lat/long agar aaye hain to ek hi location add karo
+  
     locations: (createTripDto.lat && createTripDto.long)
       ? [{
           lat: createTripDto.lat,
           long: createTripDto.long,
-          time: new Date(), // ab hamesha server se
+          time: new Date(), 
         }]
       : [],
   });
@@ -96,75 +98,104 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
 
 
 async pickStudent(driverId, dto: PickStudentDto) {
-
   const driverObjectId = new Types.ObjectId(driverId);
-  console.log(driverObjectId)
-  // 🔍 Step 1: Driver fetch karo
+
   const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
   if (!driver) {
     throw new UnauthorizedException('Driver not found');
   }
 
-  // 🔍 Step 2: Van fetch karo
- const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
   if (!van) {
     throw new BadRequestException('Van not assigned to this driver');
   }
+
   const trip = await this.databaseService.repositories.TripModel.findById(dto.tripId);
-  
   if (!trip) {
     throw new NotFoundException('Trip not found');
   }
 
- if (trip.vanId !== van._id.toString()) {
- 
-  throw new BadRequestException("Van does not belong to this trip"); // exception throw
-}
-  // Push new kid pickup data
+  if (trip.vanId !== van._id.toString()) {
+    throw new BadRequestException("Van does not belong to this trip");
+  }
+
+  // Kid added to trip
   trip.kids.push({
     kidId: dto.kidId,
-    lat:  dto.lat,
+    lat: dto.lat,
     long: dto.long,
     time: dto.time || new Date(),
     status: 'picked',
   });
 
-
-
-
   await trip.save();
-   return {
+
+
+  const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId);
+
+  if (kid?.parentId) {
+    const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
+
+    const title = "Kid Picked";
+    const message = `${kid.fullname} has been picked by the van driver.`;
+
+   
+    if (parent?.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        parent.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+          data: {
+            kidId: kid._id.toString(),
+            status: 'picked',
+            time: new Date().toISOString(),
+          }
+        }
+      );
+    }
+
+ 
+    await this.databaseService.repositories.notificationModel.create({
+      type: "driver",
+      parentId: kid.parentId,
+      VanId: van._id,
+      title: title,
+      message: message,
+      actionType: "PICKED",
+      status: "sent",
+      date: new Date(),
+    });
+  }
+
+  return {
+    message: "Kid picked, notification sent & saved",
     data: trip
   };
 }
 
-async endTrip(driverId,dto: EndTripDto) {
+async endTrip(driverId, dto: EndTripDto) {
   const { tripId, lat, long, time } = dto;
-
   const driverObjectId = new Types.ObjectId(driverId);
-  console.log(driverObjectId)
-  // 🔍 Step 1: Driver fetch karo
-  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
-  if (!driver) {
-    throw new UnauthorizedException('Driver not found');
-  }
 
-  // 🔍 Step 2: Van fetch karo
- const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
-  if (!van) {
-    throw new BadRequestException('Van not assigned to this driver');
-  }
+
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) throw new UnauthorizedException('Driver not found');
+
+
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) throw new BadRequestException('Van not assigned to this driver');
 
 
   const trip = await this.databaseService.repositories.TripModel.findById(tripId);
-  if (!trip) {
-    throw new NotFoundException('Trip not found');
+  if (!trip) throw new NotFoundException('Trip not found');
+
+  if (trip.vanId !== van._id.toString()) {
+    throw new BadRequestException("Van does not belong to this trip");
   }
-  
-   if (trip.vanId !== van._id.toString()) {
-  throw new BadRequestException("Van does not belong to this trip"); // exception throw
-}
-  // Kids status update
+
   trip.kids = trip.kids.map(kid => ({
     ...kid,
     status: 'dropped',
@@ -173,10 +204,7 @@ async endTrip(driverId,dto: EndTripDto) {
     long,
   }));
 
-  // Trip status update
   trip.status = 'end';
-
-  // Trip end info
   trip.tripEnd = {
     endTime: time ? new Date(time) : new Date(),
     lat,
@@ -184,8 +212,51 @@ async endTrip(driverId,dto: EndTripDto) {
   };
 
   await trip.save();
+
+
+  for (const kidEntry of trip.kids) {
+
+    const kidDoc = await this.databaseService.repositories.KidModel.findById(kidEntry.kidId);
+    if (!kidDoc?.parentId) continue; // agar parentId nahi hai to skip
+
+    const parent = await this.databaseService.repositories.parentModel.findById(kidDoc.parentId);
+    if (!parent) continue;
+
+    const title = "Student Reached School";
+    const message = `${kidDoc.fullname} has safely reached the school.`;
+
+
+    if (parent.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        parent.fcmToken,
+        {
+          notification: { title, body: message },
+          data: {
+            kidId: kidDoc._id.toString(),
+            status: 'dropped',
+            tripId: trip._id.toString(),
+            time: new Date().toISOString(),
+          },
+        }
+      );
+    }
+
+
+    await this.databaseService.repositories.notificationModel.create({
+      type: "driver",
+      parentId: kidDoc.parentId,
+      VanId: van._id,
+      title: title,
+      message: message,
+      actionType: "DROPPED",
+      status: "sent",
+      date: new Date(),
+    });
+  }
+
   return {
-    data: trip
+    message: "Trip ended, notifications sent & saved",
+    data: trip,
   };
 }
 
@@ -194,7 +265,6 @@ async getLocationByDriver( dto: getLocationDto) {
   const { tripId,  } = dto;
 
 
-  // 🔍 Step 1: Driver fetch karo
 
 
 

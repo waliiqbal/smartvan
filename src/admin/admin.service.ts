@@ -38,19 +38,18 @@ async createAdminAndSchool(body: any) {
   const randomPassword = crypto.randomBytes(6).toString('hex'); // 12 char ka password
   const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-  // Admin create karo
+
   const admin = await this.databaseService.repositories.AdminModel.create({
     ...adminInfo,
     password: hashedPassword,
   });
 
-  // School create karo
+
   const school = await this.databaseService.repositories.SchoolModel.create({
     ...schoolInfo,
     admin: admin._id,
   });
 
-  // JWT token generate karo
   const token = this.jwtService.sign(
     {
       sub: admin._id,
@@ -60,7 +59,7 @@ async createAdminAndSchool(body: any) {
     { expiresIn: '30d' }
   );
 
-  // Clean response (exclude password, createdAt, updatedAt)
+
   const cleanAdmin = await this.databaseService.repositories.AdminModel
     .findById(admin._id)
     .select('-password -createdAt -updatedAt -__v');
@@ -334,6 +333,7 @@ async resetPassword(email: string, otp: string, newPassword: string) {
 async loginAdmin(loginData: any) {
   try {
     const {  email, password } = loginData;
+    console.log(email)
 
    const admin = await this.databaseService.repositories.AdminModel.findOne({ email });
     if (!admin) {

@@ -170,7 +170,7 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
     {
       $unwind: {
         path: "$vanInfo",
-        preserveNullAndEmptyArrays: true, // agar vanId null ho tab bhi document show ho
+        preserveNullAndEmptyArrays: true, 
       },
     },
     {

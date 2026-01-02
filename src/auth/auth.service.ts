@@ -140,6 +140,11 @@ async loginUser(loginData: any) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.isVerified) {
+  throw new UnauthorizedException('Account not verified. Please verify OTP first');
+}
+
+
         if (fcmToken) {
       if (!user.fcmToken) {
         // Agar DB me fcmToken nahi hai to save karo

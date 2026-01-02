@@ -116,12 +116,18 @@ async loginUser(loginData: any) {
   try {
     const { userType, email, password, fcmToken } = loginData;
 
+    console.log("llllllllllll", loginData)
+
     const userModel = this.getUserModel(userType);
 
     const user = await userModel.findOne({ email });
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+   if (!user) {
+  throw new UnauthorizedException({
+    message: 'logiin failed',
+    statusCode: 401
+  });
+}
+
 
        if (user.isDelete == true) {
       throw new UnauthorizedException('Your account has been deleted. You cannot login.');
@@ -133,6 +139,11 @@ async loginUser(loginData: any) {
     if (!isPasswordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    if (!user.isVerified) {
+  throw new UnauthorizedException('Account not verified. Please verify OTP first');
+}
+
 
         if (fcmToken) {
       if (!user.fcmToken) {

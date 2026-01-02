@@ -24,8 +24,7 @@ async sendToDevice(
   payload: {
     notification?: { title: string; body: string };
     data?: { [key: string]: string };
-  },
-  extra?: { parentId?: string; driverId?: string; actionType?: string } // DB save ke liye
+  }
 ) {
   const message: admin.messaging.Message = {
     token: deviceToken,
@@ -36,20 +35,7 @@ async sendToDevice(
   };
 
   try {
-    // 🔹 Firebase push notification bhejna
     const result = await this.messaging.send(message);
-
-    // 🔹 Notification DB me save karna
-    if (extra) {
-      await this.databaseservice.repositories.notificationModel.create({
-        parentId: extra.parentId,
-        driverId: extra.driverId,
-        title: payload.notification?.title,
-        message: payload.notification?.body,
-        actionType: extra.actionType,
-      });
-    }
-
     return { success: true, result };
   } catch (error) {
     console.error('Firebase Error:', error);
@@ -60,7 +46,7 @@ async sendToDevice(
 
 async getAlerts(parentId: string) {
   const notifications = await this.databaseservice.repositories.notificationModel.find({
-    parentId: parentId, // direct string compare
+    parentId: parentId, 
   }).sort({ createdAt: -1 });
 
   return {

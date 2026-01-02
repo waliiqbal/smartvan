@@ -4,8 +4,14 @@ import { Document, Types } from 'mongoose';
 
 export type NotificationDocument = Notification & Document;
 
+
+
 @Schema({ timestamps: true })
 export class Notification {
+
+  @Prop({ required: true })
+  type?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: false })
   parentId?: Types.ObjectId;
 

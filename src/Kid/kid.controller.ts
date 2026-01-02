@@ -75,6 +75,33 @@ async getTripHistory( @Req() req: any,
 }
 
 
+@UseGuards(AuthGuard('jwt'))
+@Get('getTripHistoryByDriver')
+async getTripHistoryByDriver(
+  @Req() req: any,
+  @Query('page') page?: string,
+  @Query('limit') limit?: string,
+  @Query('isRecent') isRecent?: string,
+) {
+  const driverId = req.user.userId; // 👈 token se
+
+  const pageNumber = page ? parseInt(page, 10) : 1;
+  const limitNumber = limit ? parseInt(limit, 10) : 10;
+
+  // ✅ STRING → BOOLEAN conversion
+  const recent =
+    isRecent === 'true' || isRecent === '1';
+
+  return this.KidService.getTripHistoryByDriver(
+    driverId,
+    pageNumber,
+    limitNumber,
+    recent,
+  );
+}
+
+
+
   @UseGuards(AuthGuard('jwt'))
   @Get('getParentDriversWithSchool')
 async getParentDriversWithSchool(@Req() req: any) {

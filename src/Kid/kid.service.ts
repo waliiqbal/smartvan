@@ -617,6 +617,106 @@ return {
 
 }
 
+async getTripHistoryByDriver(
+  driverId: string,
+  page: number = 1,
+  limit: number = 10,
+  recent: boolean = false,
+) {
+  // ✅ Step 1: Driver ki van nikaalo
+  const van = await this.databaseService.repositories.VanModel.findOne(
+    { driverId: new Types.ObjectId(driverId) },
+    { VanId: 1 },
+  );
+
+  if (!van) {
+    return {
+      data: recent ? [] : {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        trips: [],
+      },
+    };
+  }
+
+  const vanId = van?._id;
+
+  // ✅ Step 2: Base match condition
+  const matchCondition: any = {
+    vanId: vanId,
+    status: 'end',
+  };
+
+  // ✅ Step 3: Aaj ki date range
+  const today = new Date();
+  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+  // ================= RECENT =================
+  if (recent) {
+    matchCondition.updatedAt = {
+      $gte: startOfDay,
+      $lte: endOfDay,
+    };
+
+    const trips = await this.databaseService.repositories.TripModel.find(
+      matchCondition,
+      {
+        vanId: 1,
+        type: 1,
+        status: 1,
+        tripStart: 1,
+        tripEnd: 1,
+        updatedAt: 1,
+        kids: 1, // passenger count ke liye
+      },
+    ).sort({ updatedAt: -1 });
+
+    return {
+      data: trips,
+    };
+  }
+
+  // ================= PAST =================
+  matchCondition.updatedAt = {
+    $lt: startOfDay,
+  };
+
+  const total =
+    await this.databaseService.repositories.TripModel.countDocuments(
+      matchCondition,
+    );
+
+  const trips = await this.databaseService.repositories.TripModel.find(
+    matchCondition,
+    {
+      vanId: 1,
+      type: 1,
+      status: 1,
+      tripStart: 1,
+      tripEnd: 1,
+      updatedAt: 1,
+      kids: 1,
+    },
+  )
+    .sort({ updatedAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+  return {
+    data: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      trips,
+    },
+  };
+}
+
+
 async deleteKidByIdAndParent(parentId: string, kidId: string) {
   const Kid = this.databaseService.repositories.KidModel;
 

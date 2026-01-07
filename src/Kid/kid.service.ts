@@ -610,13 +610,15 @@ async getTripHistoryByDriver(
 
   if (!van) {
     return {
-      data: recent ? [] : {
-        total: 0,
-        page,
-        limit,
-        totalPages: 0,
-        trips: [],
-      },
+      data: recent
+        ? []
+        : {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+            trips: [],
+          },
     };
   }
 
@@ -642,16 +644,12 @@ async getTripHistoryByDriver(
 
     const trips = await this.databaseService.repositories.TripModel.find(
       matchCondition,
-      {
-        vanId: 1,
-        type: 1,
-        status: 1,
-        tripStart: 1,
-        tripEnd: 1,
-        updatedAt: 1,
-        kids: 1, // passenger count ke liye
-      },
-    ).sort({ updatedAt: -1 });
+    )
+      .populate('routeId') // Populate route data
+      .populate('schoolId') // Populate school data
+      .populate('vanId') // Populate van data
+      .populate('kids.kidId') // Populate kids (passenger) data
+      .sort({ updatedAt: -1 });
 
     return {
       data: trips,
@@ -663,23 +661,17 @@ async getTripHistoryByDriver(
     $lt: startOfDay,
   };
 
-  const total =
-    await this.databaseService.repositories.TripModel.countDocuments(
-      matchCondition,
-    );
+  const total = await this.databaseService.repositories.TripModel.countDocuments(
+    matchCondition,
+  );
 
   const trips = await this.databaseService.repositories.TripModel.find(
     matchCondition,
-    {
-      vanId: 1,
-      type: 1,
-      status: 1,
-      tripStart: 1,
-      tripEnd: 1,
-      updatedAt: 1,
-      kids: 1,
-    },
   )
+    .populate('routeId') // Populate route data
+    .populate('schoolId') // Populate school data
+    .populate('vanId') // Populate van data
+    .populate('kids.kidId') // Populate kids (passenger) data
     .sort({ updatedAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit);
@@ -694,6 +686,7 @@ async getTripHistoryByDriver(
     },
   };
 }
+
 
 
 async deleteKidByIdAndParent(parentId: string, kidId: string) {

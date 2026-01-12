@@ -21,6 +21,7 @@ import { TripModule } from './Trip/trip.module';
 import { RouteModule } from './route/route.module';
 import { AlertModule } from './alert/alert.module';
 import { InvoiceModule } from './invoice/invoice.module';
+import { PromotionBannerModule } from './promotion-banner/promotion-banner.module';
 
 
 
@@ -45,7 +46,8 @@ import { InvoiceModule } from './invoice/invoice.module';
     TripModule,
     RouteModule,
     AlertModule,
-    InvoiceModule
+    InvoiceModule,
+    PromotionBannerModule
     
 
   ],

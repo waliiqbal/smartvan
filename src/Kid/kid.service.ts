@@ -595,19 +595,19 @@ return {
 };
 
 }
-
 async getTripHistoryByDriver(
   driverId: string,
-  page: number = 1,
-  limit: number = 10,
-  recent: boolean = false,
+  page: number,
+  limit: number,
+  recent: boolean,
 ) {
-  // ✅ Step 1: Driver ki van nikaalo
+
   const van = await this.databaseService.repositories.VanModel.findOne(
     { driverId: new Types.ObjectId(driverId) },
-    { VanId: 1 },
+    { _id: 1 },
   );
 
+ 
   if (!van) {
     return {
       data: recent
@@ -622,59 +622,98 @@ async getTripHistoryByDriver(
     };
   }
 
-  const vanId = van?._id;
+ 
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
 
-  // ✅ Step 2: Base match condition
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+
   const matchCondition: any = {
-    vanId: vanId,
+    vanId: van._id.toString(),
     status: 'end',
   };
 
-  // ✅ Step 3: Aaj ki date range
-  const today = new Date();
-  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-
-  // ================= RECENT =================
   if (recent) {
     matchCondition.updatedAt = {
       $gte: startOfDay,
       $lte: endOfDay,
     };
-
-    const trips = await this.databaseService.repositories.TripModel.find(
-      matchCondition,
-    )
-      .populate('routeId') // Populate route data
-      .populate('schoolId') // Populate school data
-      .populate('vanId') // Populate van data
-      .populate('kids.kidId') // Populate kids (passenger) data
-      .sort({ updatedAt: -1 });
-
-    return {
-      data: trips,
-    };
+  } else {
+    matchCondition.updatedAt = { $lt: startOfDay };
   }
 
-  // ================= PAST =================
-  matchCondition.updatedAt = {
-    $lt: startOfDay,
-  };
 
-  const total = await this.databaseService.repositories.TripModel.countDocuments(
-    matchCondition,
-  );
+  const pipeline: any[] = [
+    { $match: matchCondition },
 
-  const trips = await this.databaseService.repositories.TripModel.find(
-    matchCondition,
-  )
-    .populate('routeId') // Populate route data
-    .populate('schoolId') // Populate school data
-    .populate('vanId') // Populate van data
-    .populate('kids.kidId') // Populate kids (passenger) data
-    .sort({ updatedAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+    // 🔁 Route
+    {
+      $lookup: {
+        from: 'routes',
+        let: { routeId: { $toObjectId: '$routeId' } },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$$routeId'] } } },
+        ],
+        as: 'route',
+      },
+    },
+    { $unwind: { path: '$route', preserveNullAndEmptyArrays: true } },
+
+
+    {
+      $lookup: {
+        from: 'schools',
+        let: { schoolId: { $toObjectId: '$schoolId' } },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$$schoolId'] } } },
+        ],
+        as: 'school',
+      },
+    },
+    { $unwind: { path: '$school', preserveNullAndEmptyArrays: true } },
+
+   
+    {
+      $lookup: {
+        from: 'vans',
+        let: { vanId: { $toObjectId: '$vanId' } },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$$vanId'] } } },
+        ],
+        as: 'van',
+      },
+    },
+    { $unwind: { path: '$van', preserveNullAndEmptyArrays: true } },
+
+    { $sort: { updatedAt: -1 } },
+  ];
+
+  // ================= RECENT =================
+  if (recent) {
+    const trips = await this.databaseService.repositories.TripModel.aggregate(
+      pipeline,
+    );
+
+    return { data: trips };
+  }
+
+  // ================= PAST (Pagination) =================
+  const totalResult =
+    await this.databaseService.repositories.TripModel.aggregate([
+      ...pipeline,
+      { $count: 'total' },
+    ]);
+
+  const total = totalResult[0]?.total || 0;
+
+  const trips =
+    await this.databaseService.repositories.TripModel.aggregate([
+      ...pipeline,
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ]);
 
   return {
     data: {
@@ -686,6 +725,8 @@ async getTripHistoryByDriver(
     },
   };
 }
+
+
 
 
 

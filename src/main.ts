@@ -38,7 +38,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, cb) => {
-      // allow REST clients / curl with no Origin
+    
       if (!origin) return cb(null, true);
       if (whitelist.includes(origin)) return cb(null, true);
       return cb(new Error('Not allowed by CORS'), false);

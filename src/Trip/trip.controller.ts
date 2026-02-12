@@ -12,7 +12,7 @@ import { getLocationDto } from './dto/getLocations';
 export class TripController {
   constructor(private readonly tripService: TripService) {}
 
-  // Start trip endpoint
+  
   @UseGuards(AuthGuard('jwt'))
   @Post('startTrip')
   async startTrip(@Body() createTripDto: CreateTripDto,

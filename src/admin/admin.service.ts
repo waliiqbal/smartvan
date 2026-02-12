@@ -396,13 +396,13 @@ async getProfile(userId: string) {
       throw new UnauthorizedException('Invalid user credentials');
     }
      const school = await this.databaseService.repositories.SchoolModel.findOne({
-    admin: new mongoose.Types.ObjectId(userId) // admin field match kar raha hai
+    admin: new mongoose.Types.ObjectId(userId) 
     });
     if (!school) {
       throw new UnauthorizedException('school not found');
     }
 
-    // ✅ 3. Wrap response in data
+    
     return {
       message: 'school profile fetched successfully',
       data: school,
@@ -423,7 +423,7 @@ async getallschool() {
     return {
       message: 'All school fetched successfully',
       data: schools,
-    }; // DB se direct fetch
+    }; 
   }
 
   async addKid(AddStudentDto: AddStudentDto, AdminId: string, parentEmail: string) {

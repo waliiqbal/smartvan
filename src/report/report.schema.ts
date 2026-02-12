@@ -41,8 +41,14 @@ export class Report {
    @Prop({ required: false })
   video?: string;
 
+     @Prop({ required: false })
+  adminRemarks?: string;
+
+
   @Prop({ required: false })
   dateOfIncident?: Date;
 }
+
+
 
 export const ReportSchema = SchemaFactory.createForClass(Report);

@@ -46,16 +46,15 @@ export class ReportController {
 async changeComplaintStatus(
   @Req() req: any,
   
-  @Body() body: { reportId: string; status: string },
+  @Body() body: { reportId: string; status: string, adminRemarks?: string },
 ) {
   const adminId = req.user.userId; // JWT token se adminId milti hai
-  const { reportId, status } = body;
+  const { reportId, status, adminRemarks } = body;
 
   
- 
 
 
-  return this.reportService.changeComplaintStatus(adminId, reportId, status);
+  return this.reportService.changeComplaintStatus(adminId, reportId, status, adminRemarks);
   
 }
 

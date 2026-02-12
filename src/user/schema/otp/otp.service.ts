@@ -20,17 +20,17 @@ export class OtpService {
   async sendOtp(toEmail: string, otp: string): Promise<void> {
     try {
       const mailOptions = {
-        from: 'farazahmed.fa276@gmail.com',  // 🟢 same Gmail as above
+        from: 'farazahmed.fa276@gmail.com',  
         to: toEmail,
         subject: 'Your OTP Code',
         text: `Your OTP code is: ${otp}`,
-        html: `<p>Your OTP code is: <b>${otp}</b></p>`, // Optional: styled message
+        html: `<p>Your OTP code is: <b>${otp}</b></p>`, 
       };
 
-      // 🔥 Actual line that sends the email
+     
       const result = await this.transporter.sendMail(mailOptions);
 
-      // Log success
+      
       this.logger.log(`OTP email sent to ${toEmail}: ${result.response}`);
     } catch (error) {
       // Log error
@@ -48,17 +48,48 @@ async sendPassword(toEmail: string, password: string): Promise<void> {
       text: `Your password is: ${password}
 
 `,
-      html: `
-  <div style="font-family: Arial, sans-serif; line-height:1.6; max-width: 560px; margin: 0 auto; padding: 16px; border: 1px solid #eee; border-radius: 8px;">
-    <h2 style="margin: 0 0 12px;">Your Account Password</h2>
-    <p>We’ve created an account for you. Use the password below to sign in.</p>
-    <div style="background:#f7f7f7; padding:12px 16px; border-radius:6px; font-size:16px; letter-spacing:0.5px; display:inline-block;">
-      <strong>${password}</strong>
+    html: `
+  <div style="font-family: Arial, sans-serif; line-height:1.6; max-width: 560px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px; background:#ffffff;">
+    
+    <!-- App / System Heading -->
+    <h1 style="text-align:center; color:#4f46e5; margin-bottom:4px;">
+      Smart Van
+    </h1>
+    <p style="text-align:center; color:#666; font-size:14px; margin-top:0;">
+      School Management System
+    </p>
+
+    <hr style="border:none; border-top:1px solid #eee; margin:20px 0;" />
+
+    <!-- Login Heading -->
+    <h2 style="text-align:center; color:#333;">Login to Your Account</h2>
+
+    <p>Your admin account has been created successfully. Use the credentials below to log in.</p>
+
+    <!-- Credentials Box -->
+    <div style="background:#f7f7f7; padding:16px; border-radius:6px; margin:16px 0;">
+      <p style="margin:6px 0;"><b>Email:</b> ${toEmail}</p>
+      <p style="margin:6px 0;"><b>Password:</b> ${password}</p>
     </div>
-    <p style="margin-top:16px;">For your security, <b>log in and change this password if needed</b> from your profile/settings.</p>
-    <p style="color:#666; font-size:12px; margin-top:12px;">If you didn’t expect this email, you can ignore it.</p>
+
+    <!-- Login Button -->
+    <div style="text-align:center; margin:24px 0;">
+      <a href="https://smartvanride.com/auth/signin"
+         style="background:#4f46e5; color:#fff; padding:12px 24px; text-decoration:none; border-radius:6px; display:inline-block;">
+        Login Now
+      </a>
+    </div>
+
+    <p style="font-size:14px;">
+      After logging in, we recommend changing your password from your profile settings.
+    </p>
+
+    <p style="color:#777; font-size:12px; margin-top:16px;">
+      If you did not expect this email, you can safely ignore it.
+    </p>
   </div>
-`,
+`
+,
     };
 
     const result = await this.transporter.sendMail(mailOptions);

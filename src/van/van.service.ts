@@ -363,11 +363,13 @@ async getDriverKids(
   page: number,
   limit: number,
 ) {
-  // 🔹 Driver validate
+
+  console.log(userId)
+  
   const driver = await this.databaseService.repositories.driverModel.findById(userId);
   if (!driver) throw new UnauthorizedException('Driver not found');
 
-  // 🔹 Driver ki van
+ 
   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id });
   if (!van) throw new BadRequestException('Van not found for this driver');
 

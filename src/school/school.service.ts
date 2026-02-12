@@ -53,7 +53,7 @@ export class SchoolService {
   
     
 
-      // ✅ 3. Wrap response in data
+     
       return {
         message: 'kids fetched successfully',
         data: kids,

@@ -84,27 +84,46 @@ async createAdminAndSchool(body: any) {
 async editAdminAndSchool(body: any) {
   const { schoolId, adminInfo, schoolInfo } = body;
 
-  // ✅ 1. School document fetch karo
   const school = await this.databaseService.repositories.SchoolModel.findById(schoolId);
   if (!school) {
     throw new NotFoundException('School not found');
   }
 
-  // ✅ 2. Admin document fetch karo school.admin se
   const admin = await this.databaseService.repositories.AdminModel.findById(school.admin);
   if (!admin) {
     throw new NotFoundException('Admin linked to this school not found');
   }
 
-  // ✅ 3. Admin update (only provided fields)
+  let newEmail: string | null = null;
+
+  // 🔹 Update admin info
   if (adminInfo && Object.keys(adminInfo).length > 0) {
-    await this.databaseService.repositories.AdminModel.updateOne(
-      { _id: admin._id },
-      { $set: adminInfo }
-    );
+    // Agar email change ho rahi hai
+    if (adminInfo.email && adminInfo.email !== admin.email) {
+      newEmail = adminInfo.email;
+
+      // Generate random password
+      const randomPassword = crypto.randomBytes(6).toString('hex'); // 12 chars
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      // Update admin with new email + new password
+      await this.databaseService.repositories.AdminModel.updateOne(
+        { _id: admin._id },
+        { $set: { ...adminInfo, password: hashedPassword } }
+      );
+
+      // Send new password to the new email
+      await this.otpService.sendPassword(newEmail, randomPassword);
+    } else {
+      // Agar email change nahi, normal update
+      await this.databaseService.repositories.AdminModel.updateOne(
+        { _id: admin._id },
+        { $set: adminInfo }
+      );
+    }
   }
 
-  // ✅ 4. School update (add or modify any field)
+  // 🔹 Update school info
   if (schoolInfo && Object.keys(schoolInfo).length > 0) {
     await this.databaseService.repositories.SchoolModel.updateOne(
       { _id: schoolId },
@@ -112,7 +131,7 @@ async editAdminAndSchool(body: any) {
     );
   }
 
-  // ✅ 5. Updated data fetch karke sirf safe fields return karo
+  // 🔹 Fetch updated admin & school
   const updatedAdmin = await this.databaseService.repositories.AdminModel.findById(admin._id).select(
     '-password -otp -otpExpiresAt -__v -createdAt -updatedAt'
   );
@@ -121,7 +140,6 @@ async editAdminAndSchool(body: any) {
     '-__v -createdAt -updatedAt'
   );
 
-  // ✅ 6. Clean response
   return {
     message: 'Admin and School updated successfully',
     data: {
@@ -130,6 +148,7 @@ async editAdminAndSchool(body: any) {
     },
   };
 }
+
 
 async getSchoolById(schoolId: string) {
   // 1️⃣ Find school and populate admin (excluding sensitive fields)
@@ -140,12 +159,11 @@ async getSchoolById(schoolId: string) {
       select: '-password -createdAt -otp -expiresOtp -updatedAt -__v' // ❌ ye fields hide kar dega
     });
 
-  // 2️⃣ Check if school exists
   if (!school) {
     throw new NotFoundException('School not found');
   }
 
-  // 3️⃣ Return response
+  
   return {
     message: 'School fetched successfully',
     data: school,
@@ -425,7 +443,7 @@ const adminObjectId = new Types.ObjectId(AdminId);
 
   
 
-  // Step 3: If parent not found, create new parent
+
   if (!parent) {
     const username = parentEmail.split('@')[0];
     
@@ -446,7 +464,7 @@ const adminObjectId = new Types.ObjectId(AdminId);
     parent = await parent.save();
   }
 
-  // Step 4: Create kid with parentId & schoolId
+
   const newKid = new this.databaseService.repositories.KidModel({
     ...AddStudentDto,
     schoolId: school._id,
@@ -686,7 +704,7 @@ async getKids(AdminId: string, query: any) {
     dataPipeline,
   );
 
-  // ---------- Count pipeline (same filters, just $count) ----------
+
   const countPipeline: any[] = [
     ...basePipeline,
     { $count: "total" },
@@ -820,7 +838,7 @@ async getVansBySchoolAdmin(adminId: string, query: any) {
   const adminObjectId = new Types.ObjectId(adminId);
   console.log("query =>", query);
 
-  // Step 1: find school by adminId
+
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -951,7 +969,7 @@ async getVansBySchoolAdmin(adminId: string, query: any) {
     dataPipeline as any,
   );
 
-  // ---------- Count pipeline ----------
+
   const countPipeline: any[] = [...basePipeline, { $count: "total" }];
 
   const countResult =

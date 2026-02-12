@@ -38,17 +38,34 @@ async GetKidsByDriver(
   @Req() req: any,
   @Query('tripId') tripId: string,
   @Query('driverId') driverId: string,
-   @Query('page') page: string,
-    @Query('limit') limit: string,  
+  @Query('page') page: string,
+  @Query('limit') limit: string,
 ) {
-  const isPrivileged =
-    ['admin', 'superadmin'].includes((req?.user?.role || '').toLowerCase());
+  const role = (req?.user?.role || '').toLowerCase();
 
-  // decide which userId to pass down
-  const userId = isPrivileged && driverId ? driverId : req.user.userId;
-   const pageNumber = page ? parseInt(page) : 1;
-    const limitNumber = limit ? parseInt(limit) : 10;
-  return this.vanService.getDriverKids(userId, tripId, pageNumber, limitNumber );
+  let userId: string;
+
+  
+  if (['admin', 'superadmin'].includes(role)) {
+    if (!driverId) {
+      throw new BadRequestException('driverId is required for admin');
+    }
+    userId = driverId; 
+  } 
+ 
+  else {
+    userId = req.user.userId; 
+  }
+
+  const pageNumber = page ? parseInt(page) : 1;
+  const limitNumber = limit ? parseInt(limit) : 10;
+
+  return this.vanService.getDriverKids(
+    userId,
+    tripId,
+    pageNumber,
+    limitNumber,
+  );
 }
 
 

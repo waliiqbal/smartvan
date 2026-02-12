@@ -32,7 +32,7 @@ grade: string;
 image: string;
 
 
-@Prop({ required: false, default: "active" })
+@Prop({ required: false, default: "inActive" })
 status: string;
 
 @Prop({ required: false, default: "false" })

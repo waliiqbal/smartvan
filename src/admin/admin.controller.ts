@@ -171,7 +171,7 @@ async editKid(
   }
 
   @UseGuards(AuthGuard('jwt'))
-  @Patch('removeStudents')
+  @Post('removeStudents')
   async removeSchoolFromKids(
     @Req() req: any,
     @Body('kidIds') kidIds: string[], // array of kidIds
@@ -220,24 +220,24 @@ async assignVanToDriver(
 
 @UseGuards(AuthGuard('jwt'))
 @Get("Get-Vans-By-SchoolAdmin")
-async getVansBySchoolAdmin(    @Req() req: any, // request object, JWT decoded user info milega
+async getVansBySchoolAdmin(    @Req() req: any, 
     @Query() query: any,
     @Query('page') page: string,
     @Query('limit') limit: string,
    
   ) {
-    // JWT token se AdminId nikal lo
-    const adminId = req.user.userId; // assuming AuthGuard ne req.user me user data daala
+    
+    const adminId = req.user.userId; 
 
     if (!adminId) {
       throw new UnauthorizedException('Admin not found in token');
     }
 
-    // page aur limit ko number me convert karo
+    
     const pageNumber = page ? parseInt(page) : 1;
     const limitNumber = limit ? parseInt(limit) : 10;
 
-    // service call
+    
     return this.adminService.getVansBySchoolAdmin(adminId, query);
 
   

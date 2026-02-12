@@ -89,7 +89,7 @@ async assignVanToStudent(kidId: string, vanId: string, adminId: string) {
   const adminObjectId = new Types.ObjectId(adminId);
   
 
-  // Step 1: Find school by adminId
+
   const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
   console.log(school._id)
 
@@ -110,7 +110,7 @@ async assignVanToStudent(kidId: string, vanId: string, adminId: string) {
     throw new BadGatewayException('Kid not found in this school');
   }
 
-  // Step 3: Check if van already assigned
+
   if (kid.VanId) {
     return {
       message: 'Van already assigned to this student',
@@ -120,7 +120,7 @@ async assignVanToStudent(kidId: string, vanId: string, adminId: string) {
     };
   }
 
-  // Step 4: Assign new van
+ 
   kid.VanId = vanId;
   const updatedKid = await kid.save();
 
@@ -189,7 +189,9 @@ async verifyStudentByAdmin(kidId: string, adminId: string) {
     throw new UnauthorizedException('School not found');
   }
 
-  // Step 2: Find kid by id + schoolId
+
+
+
   const kid = await this.databaseService.repositories.KidModel.findOne({ _id: kidId, schoolId: schoolIdString  });
 
   if (!kid) {
@@ -206,6 +208,7 @@ async verifyStudentByAdmin(kidId: string, adminId: string) {
 
   // Step 4: Verify student
   kid.verifiedBySchool = true;
+  kid.status = "active"; 
   const updatedKid = await kid.save();
 
    const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);

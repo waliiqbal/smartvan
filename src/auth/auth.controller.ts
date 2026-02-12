@@ -32,7 +32,7 @@ export class AuthController {
     return this.authService.loginUser(loginData);
   }
 
-  @Post('verifyOtp') // ✅ POST /auth/resend-otp
+  @Post('verifyOtp') 
   async verifyOtp(@Body() body: { email: string; userType: string, otp: string }) {
     const { email, userType, otp } = body;
     return this.authService.verifyOtp(email, userType, otp);

@@ -299,19 +299,19 @@ async getTripsByAdmin(
 
   let schoolFilter: any = {};
 
-  // Step 1: Determine school filter based on userType
+
   if (userType === "admin") {
     const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
     if (!school) throw new UnauthorizedException("School not found");
     schoolFilter = { schoolId: school._id.toString() };
   } else if (userType === "superadmin") {
-    // Superadmin sees all trips — no school filter
+   
     schoolFilter = {};
   } else {
     throw new UnauthorizedException("Invalid user type");
   }
 
-  // Step 2: Aggregation pipeline
+ 
   const pipeline: any[] = [
     {
       $match: {
@@ -320,7 +320,7 @@ async getTripsByAdmin(
       }
     },
   
-    // Convert vanId to objectId
+   
     {
       $addFields: {
         vanObjectId: {
@@ -333,7 +333,7 @@ async getTripsByAdmin(
       }
     },
   
-    // ⭐ ROUTE ID → ObjectId
+ 
     {
       $addFields: {
         routeObjectId: {
@@ -346,7 +346,7 @@ async getTripsByAdmin(
       }
     },
   
-    // Van Lookup
+
     {
       $lookup: {
         from: "vans",
@@ -357,7 +357,7 @@ async getTripsByAdmin(
     },
     { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
   
-    // Driver lookup
+    
     {
       $lookup: {
         from: "drivers",

@@ -28,6 +28,9 @@ export class DatabaseService {
     @InjectModel(schema.Route.name)
     private routeModel: Model<schema.RouteDocument>,
 
+    @InjectModel(schema.PromotionBanner.name)
+    private PromotionBannerModel: Model<schema.PromotionBannerDocument>,
+
      @InjectModel(schema.FAQ.name)
     private FAQModel: Model<schema.FAQDocument>,
 
@@ -48,7 +51,8 @@ export class DatabaseService {
       reportModel: this.reportModel,
       FAQModel: this.FAQModel,
       routeModel: this.routeModel,
-      invoiceModel: this.invoiceModel
+      invoiceModel: this.invoiceModel,
+      PromotionBannerModel: this.PromotionBannerModel
         };
   }
 }

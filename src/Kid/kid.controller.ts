@@ -28,14 +28,23 @@ async getKids(@Req() req: any) {
 
 
 @UseGuards(AuthGuard('jwt'))
-@Post('verifyStudentByAdmin')
-async verifyStudentByAdmin(
-  @Body('kidId') kidId: string,
+@Post('changeKidStatus')
+async verifyStudents(
   @Req() req: any,
+  @Body() body: { kidIds: string[]; status: string },
 ) {
   const adminId = req.user.userId;
-  return this.KidService.verifyStudentByAdmin(kidId, adminId);
+  const { kidIds, status } = body;
+
+  return this.KidService.verifyStudentsByAdmin(
+    kidIds,
+    adminId,
+    status,
+  );
 }
+
+
+
 
 @UseGuards(AuthGuard('jwt'))
 @Post('update-kid')

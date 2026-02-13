@@ -119,12 +119,12 @@ async createDriverReport(body: any, driverId: string) {
   ) {
     const adminObjectId = new Types.ObjectId(adminId);
 
-    // Pagination
+    
     const page = Math.max(1, parseInt(query.page as string, 10) || 1);
     const limit = Math.max(1, parseInt(query.limit as string, 10) || 10);
     const skip = (page - 1) * limit;
 
-    // Filters
+    
    const status = typeof query.status === "string" ? query.status.trim() : "";
 const typeFilter = typeof query.type === "string" ? query.type.trim() : "";
 
@@ -157,7 +157,7 @@ const typeFilter = typeof query.type === "string" ? query.type.trim() : "";
   
     const total = await this.databaseService.repositories.reportModel.countDocuments(matchFilter);
 
-    // Aggregation pipeline
+    
     const reports = await this.databaseService.repositories.reportModel.aggregate([
       { $match: matchFilter },
 
@@ -184,7 +184,7 @@ const typeFilter = typeof query.type === "string" ? query.type.trim() : "";
       },
       { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
 
-      // Van lookup
+      
       {
         $lookup: {
           from: "vans",
@@ -325,7 +325,7 @@ const typeFilter = typeof query.type === "string" ? query.type.trim() : "";
 
 
 async changeComplaintStatus(adminId: string, reportId: string, newStatus: string, adminRemarks?: string ) {
-  // 1️⃣ AdminId ko ObjectId me convert karo
+ 
   const adminObjectId = new Types.ObjectId(adminId);
 
   
@@ -361,6 +361,36 @@ async changeComplaintStatus(adminId: string, reportId: string, newStatus: string
   };
 }
 
+async getComplaintById(adminId: string, reportId: string) {
+
+  const adminObjectId = new Types.ObjectId(adminId);
+
+
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
+  if (!school) {
+    throw new UnauthorizedException('Invalid admin or school not found');
+  }
+
+  const schoolId = school._id.toString();
+
+
+  const report = await this.databaseService.repositories.reportModel.findOne({
+    _id: new Types.ObjectId(reportId),
+    schoolId: schoolId,
+  });
+
+  if (!report) {
+    throw new BadRequestException('Report not found for this school');
+  }
+
+  return {
+    message: 'Report fetched successfully',
+    data: report,
+  };
+}
 
 
 async addFaq(data: any) {

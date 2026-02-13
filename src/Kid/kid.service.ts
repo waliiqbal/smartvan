@@ -150,7 +150,7 @@ async assignVanToDriver(driverId: string, vanId: string, adminId: string) {
 
 
 
-  // Step 2: Find kid by id
+ 
   const van = await this.databaseService.repositories.VanModel.findOne({ _id: vanId, schoolId: schoolIdString });
  
 
@@ -175,50 +175,51 @@ async assignVanToDriver(driverId: string, vanId: string, adminId: string) {
     data: updatedVan 
   };
 }
-async verifyStudentByAdmin(kidId: string, adminId: string) {
+
+async verifyStudentsByAdmin(
+  kidIds: string[],
+  adminId: string,
+  status: string,
+) {
   const adminObjectId = new Types.ObjectId(adminId);
-  
 
-  // Step 1: Find school by adminId
-  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
-  console.log(school._id)
 
-    const schoolIdString = school._id.toString();
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
 
   if (!school) {
     throw new UnauthorizedException('School not found');
   }
 
+  const schoolIdString = school._id.toString();
 
 
-
-  const kid = await this.databaseService.repositories.KidModel.findOne({ _id: kidId, schoolId: schoolIdString  });
-
-  if (!kid) {
-    throw new BadGatewayException('Kid not found in this school');
+  if (status !== 'active' && status !== 'inActive') {
+    throw new BadRequestException('Invalid status value');
   }
 
-  // Step 3: Check if already verified
-  if (kid.verifiedBySchool === true) {
-    return {
-      message: 'Student already verified',
-      data: kid,
-    };
-  }
 
-  // Step 4: Verify student
-  kid.verifiedBySchool = true;
-  kid.status = "active"; 
-  const updatedKid = await kid.save();
-
-   const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
-
+  const result =
+    await this.databaseService.repositories.KidModel.updateMany(
+      {
+        _id: { $in: kidIds.map(id => new Types.ObjectId(id)) },
+        schoolId: schoolIdString,
+      },
+      {
+        $set: {
+          verifiedBySchool: true,
+          status: status,
+        },
+      },
+    );
 
   return {
-    message: 'Student verified successfully',
-    data: updatedKid,
+    message: 'Students updated successfully',
+    modifiedCount: result.modifiedCount,
   };
 }
+
 
 async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
     // 🔹 Step 1: Driver check

@@ -437,7 +437,7 @@ const adminObjectId = new Types.ObjectId(AdminId);
   }
 
   
-  // Step 2: Find parent by email
+ 
   let parent = await this.databaseService.repositories.parentModel.findOne({ email: parentEmail });
 
 
@@ -483,7 +483,6 @@ const adminObjectId = new Types.ObjectId(AdminId);
 async getKids(AdminId: string, query: any) {
   const adminObjectId = new Types.ObjectId(AdminId);
 
-  // Step 1: find school
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -492,35 +491,33 @@ async getKids(AdminId: string, query: any) {
     throw new UnauthorizedException("School not found");
   }
 
-  // Extract + normalize query params
   const page = Math.max(1, parseInt(query.page as string, 10) || 1);
   const limit = Math.max(1, parseInt(query.limit as string, 10) || 10);
 
-  const kidsName = typeof query.kidsName === "string" ? query.kidsName.trim() : "";
-  const parentName = typeof query.parentName === "string" ? query.parentName.trim() : "";
-  const driverName = typeof query.driverName === "string" ? query.driverName.trim() : "";
-  const carNumber = typeof query.carNumber === "string" ? query.carNumber.trim() : "";
+  const kidsName =
+    typeof query.kidsName === "string" ? query.kidsName.trim() : "";
+  const parentName =
+    typeof query.parentName === "string" ? query.parentName.trim() : "";
+  const driverName =
+    typeof query.driverName === "string" ? query.driverName.trim() : "";
+  const carNumber =
+    typeof query.carNumber === "string" ? query.carNumber.trim() : "";
 
   const skip = (page - 1) * limit;
 
-  // ---------- Common pipeline (for data + count) ----------
   const basePipeline: any[] = [
-    // Match by school + (optional) kid name
     {
       $match: {
         schoolId: school._id.toString(),
         ...(kidsName
           ? {
-              fullname: {
-                $regex: kidsName,
-                $options: "i",
-              },
+              fullname: { $regex: kidsName, $options: "i" },
             }
           : {}),
       },
     },
 
-    // VanId ko ObjectId me convert (agar valid ho)
+    // Convert VanId to ObjectId for Van lookup
     {
       $addFields: {
         vanObjectId: {
@@ -570,6 +567,22 @@ async getKids(AdminId: string, query: any) {
       },
     },
 
+    // ✅ Route lookup (Direct string match via VanId)
+    {
+      $lookup: {
+        from: "routes",
+        localField: "VanId",   // Kid table
+        foreignField: "vanId", // Route table
+        as: "route",
+      },
+    },
+    {
+      $unwind: {
+        path: "$route",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
     // Driver lookup
     {
       $lookup: {
@@ -587,7 +600,6 @@ async getKids(AdminId: string, query: any) {
     },
   ];
 
-  // ---------- Dynamic filters on joined data ----------
   const andFilters: any[] = [];
 
   if (parentName) {
@@ -610,13 +622,10 @@ async getKids(AdminId: string, query: any) {
 
   if (andFilters.length) {
     basePipeline.push({
-      $match: {
-        $and: andFilters,
-      },
+      $match: { $and: andFilters },
     });
   }
 
-  // ---------- Data pipeline (projection + pagination) ----------
   const dataPipeline: any[] = [
     ...basePipeline,
     { $sort: { createdAt: -1 } },
@@ -649,12 +658,10 @@ async getKids(AdminId: string, query: any) {
               null,
             ],
           },
-          schoolId: "$parent.schoolId",
           fullname: { $ifNull: ["$parent.fullname", ""] },
           email: { $ifNull: ["$parent.email", ""] },
           phoneNo: { $ifNull: ["$parent.phoneNo", ""] },
           address: { $ifNull: ["$parent.address", ""] },
-          image: { $ifNull: ["$parent.image", ""] },
         },
         van: {
           id: {
@@ -664,19 +671,18 @@ async getKids(AdminId: string, query: any) {
               null,
             ],
           },
-          driverId: {
+          vehicleType: { $ifNull: ["$van.vehicleType", ""] },
+          carNumber: { $ifNull: ["$van.carNumber", ""] },
+        },
+        route: {
+          id: {
             $cond: [
-              { $ifNull: ["$van.driverId", false] },
-              { $toString: "$van.driverId" },
+              { $ifNull: ["$route._id", false] },
+              { $toString: "$route._id" },
               null,
             ],
           },
-          schoolId: "$van.schoolId",
-          venImage: { $ifNull: ["$van.venImage", ""] },
-          cnic: { $ifNull: ["$van.cnic", ""] },
-          vehicleType: { $ifNull: ["$van.vehicleType", ""] },
-          assignRoute: { $ifNull: ["$van.assignRoute", ""] },
-          carNumber: { $ifNull: ["$van.carNumber", ""] },
+          title: { $ifNull: ["$route.title", ""] },
         },
         driver: {
           id: {
@@ -686,12 +692,8 @@ async getKids(AdminId: string, query: any) {
               null,
             ],
           },
-          schoolId: "$driver.schoolId",
           fullname: { $ifNull: ["$driver.fullname", ""] },
-          email: { $ifNull: ["$driver.email", ""] },
           phoneNo: { $ifNull: ["$driver.phoneNo", ""] },
-          address: { $ifNull: ["$driver.address", ""] },
-          image: { $ifNull: ["$driver.image", ""] },
         },
         _id: 0,
       },
@@ -700,20 +702,13 @@ async getKids(AdminId: string, query: any) {
     { $limit: limit },
   ];
 
-  const kids = await this.databaseService.repositories.KidModel.aggregate(
-    dataPipeline,
-  );
+  const kids =
+    await this.databaseService.repositories.KidModel.aggregate(dataPipeline);
 
-
-  const countPipeline: any[] = [
-    ...basePipeline,
-    { $count: "total" },
-  ];
+  const countPipeline: any[] = [...basePipeline, { $count: "total" }];
 
   const countResult =
-    await this.databaseService.repositories.KidModel.aggregate(
-      countPipeline,
-    );
+    await this.databaseService.repositories.KidModel.aggregate(countPipeline);
 
   const total = countResult[0]?.total || 0;
 
@@ -728,6 +723,8 @@ async getKids(AdminId: string, query: any) {
     },
   };
 }
+
+
 
 
 async editStudent(KidId: string, AdminId: string, editStudentDto: EditStudentDto) {

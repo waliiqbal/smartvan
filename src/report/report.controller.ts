@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 
-import { Controller, Post, Body, Req, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get, Query, Param } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UseGuards } from '@nestjs/common';
 import { ReportService } from './report.service';
@@ -58,6 +58,16 @@ async changeComplaintStatus(
   
 }
 
+@UseGuards(AuthGuard('jwt'))
+@Get('getComplaintById/:reportId')
+async getComplaintById(
+  @Req() req: any,
+  @Param('reportId') reportId: string,
+) {
+  const adminId = req.user.userId; // JWT se adminId
+
+  return this.reportService.getComplaintById(adminId, reportId);
+}
 
 
 @Get('issue-types')

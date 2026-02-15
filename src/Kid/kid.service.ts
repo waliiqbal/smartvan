@@ -6,6 +6,7 @@ import { Types } from 'mongoose';
 import mongoose from 'mongoose';
 import { FirebaseAdminService } from 'src/notification/firebase-admin.service';
 import { Kid } from './kid.schema';
+import { title } from 'process';
 
 
 
@@ -50,40 +51,111 @@ async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
 }
 
 async getKids(userId: string, userType: string) {
-  // Step 1: Sirf parent access kare
+
+  // ======================
+  // DRIVER LOGIN CASE
+  // ======================
   if (userType !== 'parent') {
-    const driver = await this.databaseService.repositories.driverModel.findById(userId);
-  if (!driver) throw new UnauthorizedException('Driver not found');
 
-  // 🔹 Driver ki van
-  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id });
-  if (!van) throw new BadRequestException('Van not found for this driver');
+    const driver =
+      await this.databaseService.repositories.driverModel.findById(userId);
+    if (!driver) throw new UnauthorizedException('Driver not found');
 
-  // Step 3: Parent ID se bachay fetch karo
-  const kids = await this.databaseService.repositories.KidModel.find({ VanId: van._id.toString() });
+    const van =
+      await this.databaseService.repositories.VanModel.findOne({
+        driverId: driver._id
+      });
+    if (!van) throw new BadRequestException('Van not found');
 
-      // Step 4: Response wrap in data
-      return {
-        message: 'Kids fetched successfully',
-        data: kids,
-      };
-    }
+    const kids =
+      await this.databaseService.repositories.KidModel.aggregate([
 
-  // Step 2: Parent find karo (ensure parent exists)
-  const parent = await this.databaseService.repositories.parentModel.findById(userId);
-  if (!parent) {
-    throw new UnauthorizedException('Parent not found');
+        { $match: { VanId: van._id.toString() }},
+
+        // VAN LOOKUP
+        {
+          $lookup: {
+            from: "vans",
+            let: { vanObjId: { $toObjectId: "$VanId" }},
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id","$$vanObjId"] }}},
+              { $project:{ carNumber:1, vanNumber:1 }}
+            ],
+            as: "van"
+          }
+        },
+        { $unwind:{ path:"$van", preserveNullAndEmptyArrays:true }},
+
+        // DRIVER LOOKUP
+        {
+          $lookup:{
+            from:"drivers",
+            localField:"van.driverId",
+            foreignField:"_id",
+            pipeline:[
+              { $project:{ fullname:1, phoneNo:1 }}
+            ],
+            as:"driver"
+          }
+        },
+        { $unwind:{ path:"$driver", preserveNullAndEmptyArrays:true }}
+
+      ]);
+
+    return {
+      message:'Kids fetched successfully',
+      data:kids
+    };
   }
 
-  // Step 3: Parent ID se bachay fetch karo
-  const kids = await this.databaseService.repositories.KidModel.find({ parentId: parent._id });
+  // ======================
+  // PARENT LOGIN CASE
+  // ======================
+  const parent =
+    await this.databaseService.repositories.parentModel.findById(userId);
+  if (!parent) throw new UnauthorizedException('Parent not found');
 
-  // Step 4: Response wrap in data
+  const kids =
+    await this.databaseService.repositories.KidModel.aggregate([
+
+      { $match:{ parentId: parent._id }},
+
+      // VAN LOOKUP
+      {
+        $lookup:{
+          from:"vans",
+          let:{ vanObjId:{ $toObjectId:"$VanId" }},
+          pipeline:[
+            { $match:{ $expr:{ $eq:["$_id","$$vanObjId"] }}},
+            { $project:{ carNumber:1, vanNumber:1, driverId:1 }}
+          ],
+          as:"van"
+        }
+      },
+      { $unwind:{ path:"$van", preserveNullAndEmptyArrays:true }},
+
+      // DRIVER LOOKUP
+      {
+        $lookup:{
+          from:"drivers",
+          localField:"van.driverId",
+          foreignField:"_id",
+          pipeline:[
+            { $project:{ fullname:1, phoneNo:1 }}
+          ],
+          as:"driver"
+        }
+      },
+      { $unwind:{ path:"$driver", preserveNullAndEmptyArrays:true }}
+
+    ]);
+
   return {
-    message: 'Kids fetched successfully',
-    data: kids,
+    message:'Kids fetched successfully',
+    data:kids
   };
 }
+
 
 async assignVanToStudent(kidId: string, vanId: string, adminId: string) {
   const adminObjectId = new Types.ObjectId(adminId);
@@ -540,65 +612,225 @@ async getParentDriversWithSchool(parentId: string) {
   return { data: result };
 }
 
-async getTripHistoryByParent(parentId: string,
+async getTripHistoryByParent(
+  parentId: string,
   date?: string,
   page: number = 1,
   limit: number = 10,
 ) {
-  // Step 1: Parent ke kids fetch karo (sirf vanIds)
-  const kids = await this.databaseService.repositories.KidModel.find(
-    { parentId: new Types.ObjectId(parentId) },
-    { VanId: 1 }
+  // ==============================
+  // Step 1: Parent ke kids
+  // ==============================
+  const parentKids = await this.databaseService.repositories.KidModel.find(
+    { parentId: new Types.ObjectId(parentId) }
   );
 
-  if (!kids || kids.length === 0) return [];
+  if (!parentKids.length) {
+    return {
+      data: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        trips: [],
+      },
+    };
+  }
 
-  const vanIds = kids.map(k => k.VanId);
-  const uniqueVanIds = [...new Set(vanIds)];
+  const parentKidIds = parentKids.map(k => k._id.toString());
+  const vanIds = [...new Set(parentKids.map(k => k.VanId))];
+  console.log("Parent Kid IDs:", parentKidIds);
 
-  // Step 2: Match condition banao
+  // ==============================
+  // Step 2: Match condition
+  // ==============================
   const matchCondition: any = {
-    vanId: { $in: uniqueVanIds },
-    status: "end"
+    vanId: { $in: vanIds },
+    status: "end",
   };
 
   if (date) {
-    const inputDate = new Date(date);
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
 
-    const startOfDay = new Date(inputDate.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(inputDate.setHours(23, 59, 59, 999));
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    matchCondition["updatedAt"] = {
+    matchCondition.updatedAt = {
       $gte: startOfDay,
       $lte: endOfDay,
     };
   }
 
-  // Step 3: Total count for pagination
-  const total = await this.databaseService.repositories.TripModel.countDocuments(
-    matchCondition
-  );
+  // ==============================
+  // Step 3: Aggregation
+  // ==============================
+  const pipeline: any[] = [
 
-  // Step 4: Trips with pagination
-  const trips = await this.databaseService.repositories.TripModel.find(
-    matchCondition,
-    { "tripStart.startTime": 1, "tripEnd.endTime": 1, status: 1, type: 1 } // 👈 sirf required fields
-  )
-    .sort({ updatedAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+    { $match: matchCondition },
 
-return {
-  data: {
-    total,        // total documents matching condition
-    page,         // current page
-    limit,        // per page
-    totalPages: Math.ceil(total / limit),
-    trips,        // paginated trips
-  }
-};
+    // ✅ VAN LOOKUP
+    {
+      $lookup: {
+        from: "vans",
+        let: { vanObjId: { $toObjectId: "$vanId" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$vanObjId"] } } }
+        ],
+        as: "van",
+      },
+    },
+    { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
 
+    // ✅ DRIVER LOOKUP
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "van.driverId",
+        foreignField: "_id",
+        as: "driver",
+      },
+    },
+    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+
+    // ✅ ROUTE LOOKUP
+    {
+      $lookup: {
+        from: "routes",
+        let: { routeObjId: { $toObjectId: "$routeId" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$routeObjId"] } } }
+        ],
+        as: "route",
+      },
+    },
+    { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
+
+    // ======================
+    // ✅ KIDS FIX START
+    // ======================
+
+    { $unwind: "$kids" },
+
+    {
+      $match: {
+        "kids.kidId": { $in: parentKidIds },
+      },
+    },
+
+    // 👉 Kids table se name lana
+    {
+      $lookup: {
+        from: "kids",
+        let: { kidObjId: { $toObjectId: "$kids.kidId" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$kidObjId"] } } },
+          { $project: { fullname: 1 } }
+        ],
+        as: "kidInfo",
+      },
+    },
+    { $unwind: "$kidInfo" },
+
+    // ======================
+    // Group back
+    // ======================
+    {
+      $group: {
+        _id: "$_id",
+        status: { $first: "$status" },
+        type: { $first: "$type" },
+        tripStart: { $first: "$tripStart" },
+        tripEnd: { $first: "$tripEnd" },
+        updatedAt: { $first: "$updatedAt" },
+
+        van: { $first: "$van" },
+        driver: { $first: "$driver" },
+        route: { $first: "$route" },
+
+        kids: {
+          $push: {
+            kidId: "$kids.kidId",
+            name: "$kidInfo.fullname",
+            time: "$kids.time",
+            lat: "$kids.lat",
+            long: "$kids.long",
+            status: "$kids.status",
+          },
+        },
+      },
+    },
+
+    { $sort: { updatedAt: -1 } },
+
+    // ======================
+    // Projection
+    // ======================
+    {
+      $project: {
+        _id: 1,
+        status: 1,
+        type: 1,
+        tripStart: 1,
+        tripEnd: 1,
+        updatedAt: 1,
+
+        van: {
+          _id: "$van._id",
+          vanNumber: "$van.vanNumber",
+          carNumber: "$van.carNumber",
+        },
+
+        driver: {
+          _id: "$driver._id",
+          fullname: "$driver.fullname",
+          phoneNo: "$driver.phoneNo",
+        },
+
+        route: {
+          _id: "$route._id",
+          title: "$route.title",
+        },
+
+        kids: 1,
+      },
+    },
+
+    // Pagination
+    {
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+        ],
+      },
+    },
+  ];
+
+  // ==============================
+  // Step 4: Execute
+  // ==============================
+  const result = await this.databaseService.repositories.TripModel.aggregate(pipeline);
+
+  const trips = result[0]?.data || [];
+  const total = result[0]?.metadata[0]?.total || 0;
+
+  return {
+    data: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      trips,
+    },
+  };
 }
+
+
+
+
+
 async getTripHistoryByDriver(
   driverId: string,
   page: number,
@@ -652,7 +884,7 @@ async getTripHistoryByDriver(
   const pipeline: any[] = [
     { $match: matchCondition },
 
-    // 🔁 Route
+   
     {
       $lookup: {
         from: 'routes',

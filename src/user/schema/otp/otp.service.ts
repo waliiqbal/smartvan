@@ -101,3 +101,99 @@ async sendPassword(toEmail: string, password: string): Promise<void> {
 }
 
 }
+
+
+// /* eslint-disable prettier/prettier */
+// import { Injectable, Logger } from '@nestjs/common';
+// import * as nodemailer from 'nodemailer';
+
+// @Injectable()
+// export class OtpService {
+//   private transporter: nodemailer.Transporter;
+//   private readonly logger = new Logger(OtpService.name);
+
+//   constructor() {
+//     this.transporter = nodemailer.createTransport({
+//       host: 'smtp.hostinger.com',
+//       port: 587,          // TLS port (recommended)
+//       secure: false,      // false for 587
+//       auth: {
+//         user: 'info@smartvan.pk',   // your SmartVan email
+//         pass: 'EMAIL_PASSWORD',     // same password as webmail
+//       },
+//     });
+
+//     // Optional: verify connection
+//     this.transporter.verify()
+//       .then(() => this.logger.log('✅ SMTP ready'))
+//       .catch(err => this.logger.error('❌ SMTP error', err));
+//   }
+
+//   async sendOtp(toEmail: string, otp: string): Promise<void> {
+//     try {
+//       const mailOptions = {
+//         from: 'Smart Van <info@smartvan.pk>',
+//         to: toEmail,
+//         subject: 'Your OTP Code',
+//         text: `Your OTP code is: ${otp}`,
+//         html: `<p>Your OTP code is: <b>${otp}</b></p>`,
+//       };
+
+//       const result = await this.transporter.sendMail(mailOptions);
+//       this.logger.log(`OTP email sent to ${toEmail}: ${result.response}`);
+
+//     } catch (error) {
+//       this.logger.error(`Failed to send OTP to ${toEmail}`, error);
+//       throw new Error('Failed to send OTP email');
+//     }
+//   }
+
+//   async sendPassword(toEmail: string, password: string): Promise<void> {
+//     try {
+//       const mailOptions = {
+//         from: 'Smart Van <info@smartvan.pk>',
+//         to: toEmail,
+//         subject: 'Your Password',
+//         text: `Your password is: ${password}`,
+//         html: `
+//         <div style="font-family: Arial, sans-serif; line-height:1.6; max-width: 560px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px; background:#ffffff;">
+          
+//           <h1 style="text-align:center; color:#4f46e5;">Smart Van</h1>
+//           <p style="text-align:center; color:#666;">School Management System</p>
+
+//           <hr style="border-top:1px solid #eee;" />
+
+//           <h2 style="text-align:center;">Login to Your Account</h2>
+
+//           <p>Your admin account has been created successfully.</p>
+
+//           <div style="background:#f7f7f7; padding:16px; border-radius:6px;">
+//             <p><b>Email:</b> ${toEmail}</p>
+//             <p><b>Password:</b> ${password}</p>
+//           </div>
+
+//           <div style="text-align:center; margin:20px 0;">
+//             <a href="https://smartvanride.com/auth/signin"
+//                style="background:#4f46e5; color:#fff; padding:12px 24px; text-decoration:none; border-radius:6px;">
+//               Login Now
+//             </a>
+//           </div>
+
+//           <p>We recommend changing your password after login.</p>
+
+//           <p style="color:#777; font-size:12px;">
+//             If you did not expect this email, ignore it.
+//           </p>
+//         </div>
+//         `,
+//       };
+
+//       const result = await this.transporter.sendMail(mailOptions);
+//       this.logger.log(`✅ Password email sent to ${toEmail}: ${result.response}`);
+
+//     } catch (error) {
+//       this.logger.error(`❌ Failed to send password to ${toEmail}`, error);
+//       throw new Error('Failed to send password email');
+//     }
+//   }
+// }

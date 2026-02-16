@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
 import { EditDriverDto } from './dto/editDriver.dto';
+import { title } from 'process';
 
 @Injectable()
 export class VanService { 
@@ -130,7 +131,7 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
      const driverObjectId = new Types.ObjectId(dto.driverId);
 
 
-    // Step 1: Find school by admin
+  
     const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
     if (!school) {
       throw new UnauthorizedException('School not found');
@@ -138,7 +139,7 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
 
     const schoolId = school._id.toString()
 
-    // Step 2: Find van by vanId and school
+    
     const van = await this.databaseService.repositories.VanModel.findById({ _id: vanObjectId});
     if (!van) {
       throw new BadRequestException('Van not found');
@@ -189,76 +190,148 @@ return {
 };
 }
 
-async getVansByAdmin(AdminId: string, page = 1, limit = 10, search?: string) {
+async getVansByAdmin(
+  AdminId: string,
+  page = 1,
+  limit = 10,
+  search?: string,
+) {
   const adminObjectId = new Types.ObjectId(AdminId);
 
-  // Step 1: find school
-  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  // 1. Find school
+  const school =
+    await this.databaseService.repositories.SchoolModel.findOne({
+      admin: adminObjectId,
+    });
+
   if (!school) {
-    throw new UnauthorizedException("School not found");
+    throw new UnauthorizedException('School not found');
   }
 
   const skip = (page - 1) * limit;
 
-  // Step 2: aggregation pipeline
+  // 2. Aggregation pipeline
   const pipeline = [
     {
       $match: {
         schoolId: school._id.toString(),
-        ...(search ? { carNumber: { $regex: search, $options: "i" } } : {})
-      }
+        ...(search
+          ? { carNumber: { $regex: search, $options: 'i' } }
+          : {}),
+      },
     },
+
+    // 🔹 Lookup Driver
     {
       $lookup: {
-        from: "drivers",
-        localField: "driverId",
-        foreignField: "_id",
-        as: "driver"
-      }
+        from: 'drivers',
+        localField: 'driverId',
+        foreignField: '_id',
+        as: 'driver',
+      },
     },
-    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+    {
+      $unwind: {
+        path: '$driver',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // 🔹 Lookup Route (vanId string === van._id string)
+    {
+      $lookup: {
+        from: 'routes',
+        let: { vanIdStr: { $toString: '$_id' } },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ['$vanId', '$$vanIdStr'],
+              },
+            },
+          },
+        ],
+        as: 'route',
+      },
+    },
+    {
+      $unwind: {
+        path: '$route',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // 🔹 Final Response Shape
     {
       $project: {
         van: {
-          id: { $toString: "$_id" },
-          condition: { $ifNull: ["$condition", ""] },
-          deviceId: { $ifNull: ["$deviceId", ""] },
-          assignRoute: { $ifNull: ["$assignRoute", ""] },
-          vehicleType: { $ifNull: ["$vehicleType", ""] },
-          carNumber: { $ifNull: ["$carNumber", ""] },
-          status: { $ifNull: ["$status", ""] }
+          id: { $toString: '$_id' },
+          condition: { $ifNull: ['$condition', ''] },
+          deviceId: { $ifNull: ['$deviceId', ''] },
+          assignRoute: { $ifNull: ['$assignRoute', ''] },
+          vehicleType: { $ifNull: ['$vehicleType', ''] },
+          carNumber: { $ifNull: ['$carNumber', ''] },
+          status: { $ifNull: ['$status', ''] },
         },
+
         driver: {
-          id: { $cond: [{ $ifNull: ["$driver._id", false] }, { $toString: "$driver._id" }, null] },
-          fullname: { $ifNull: ["$driver.fullname", ""] },
-          image: { $ifNull: ["$driver.image", ""] },
-          phoneNo: { $ifNull: ["$driver.phoneNo", ""] }
+          id: {
+            $cond: [
+              { $ifNull: ['$driver._id', false] },
+              { $toString: '$driver._id' },
+              null,
+            ],
+          },
+          fullname: { $ifNull: ['$driver.fullname', ''] },
+          image: { $ifNull: ['$driver.image', ''] },
+          phoneNo: { $ifNull: ['$driver.phoneNo', ''] },
         },
-        _id: 0
-      }
+
+        route: {
+          id: {
+            $cond: [
+              { $ifNull: ['$route._id', false] },
+              { $toString: '$route._id' },
+              null,
+            ],
+          },
+          title: { $ifNull: ['$route.title', ''] },
+          tripType: { $ifNull: ['$route.tripType', ''] },
+          
+        },
+
+        _id: 0,
+      },
     },
+
     { $skip: skip },
-    { $limit: limit }
+    { $limit: limit },
   ];
 
-  const vans = await this.databaseService.repositories.VanModel.aggregate(pipeline);
+  const vans =
+    await this.databaseService.repositories.VanModel.aggregate(pipeline);
 
-  const total = await this.databaseService.repositories.VanModel.countDocuments({
-    schoolId: school._id.toString(),
-    ...(search ? { carNumber: { $regex: search, $options: "i" } } : {})
-  });
+  const total =
+    await this.databaseService.repositories.VanModel.countDocuments({
+      schoolId: school._id.toString(),
+      ...(search
+        ? { carNumber: { $regex: search, $options: 'i' } }
+        : {}),
+    });
 
   return {
-    message: "Vans fetched successfully",
+    message: 'Vans fetched successfully',
     data: vans,
     pagination: {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit)
-    }
+      totalPages: Math.ceil(total / limit),
+    },
   };
 }
+
+
 
 async getVanById(vanId: string) {
   // 1. Van find karo
@@ -296,6 +369,105 @@ async getVanById(vanId: string) {
     },
   };
 }
+
+async updateVanStatusByAdmin(
+  vanIds: string[],
+  adminId: string,
+  status: string,
+) {
+  const adminObjectId = new Types.ObjectId(adminId);
+
+ 
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  const schoolIdString = school._id.toString();
+
+ 
+  if (status !== 'active' && status !== 'inActive') {
+    throw new BadRequestException('Invalid status value');
+  }
+
+  if (!vanIds || vanIds.length === 0) {
+    throw new BadRequestException('vanIds array is required');
+  }
+
+  const vanObjectIds = vanIds.map(id => new Types.ObjectId(id));
+
+ 
+  const result =
+    await this.databaseService.repositories.VanModel.updateMany(
+      {
+        _id: { $in: vanObjectIds },
+        schoolId: schoolIdString,
+      },
+      {
+        $set: {
+          status: status,
+        },
+      },
+    );
+
+  // 4. Fetch updated vans
+  const updatedVans =
+    await this.databaseService.repositories.VanModel.find(
+      {
+        _id: { $in: vanObjectIds },
+        schoolId: schoolIdString,
+      },
+      {
+        carNumber: 1,
+        status: 1,
+      },
+    );
+
+ 
+  return {
+    message: 'Vans status updated successfully',
+    modifiedCount: result.modifiedCount,
+    vans: updatedVans,
+  };
+}
+
+async removeDriverFromVan(vanId: string , adminId: string) {
+  const adminObjectId = new Types.ObjectId(adminId);
+
+ 
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+
+  const vanObjectId = new Types.ObjectId(vanId);
+
+  // 1. Update van → driverId null
+  const result = await this.databaseService.repositories.VanModel.updateOne(
+    { _id: vanObjectId },
+    { $set: { driverId: null } }
+  );
+
+  // 2. Fetch updated van
+  const updatedVan = await this.databaseService.repositories.VanModel.findOne(
+    { _id: vanObjectId }
+  );
+
+  // 3. Response
+  return {
+    message: 'Driver removed from van successfully',
+    modifiedCount: result.modifiedCount,
+    van: updatedVan,
+  };
+}
+
 
 async updateProfile(
   userId: string,

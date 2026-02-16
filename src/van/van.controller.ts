@@ -120,6 +120,37 @@ console.log(AdminId)
     console.log(id)
     return this.vanService.getVanById(id);
   }
+
+   @UseGuards(AuthGuard('jwt'))
+@Post('changeVanStatus')
+async changeVanStatus(
+  @Req() req: any,
+  @Body() body: { vanIds: string[]; status: string },
+) {
+  const adminId = req.user.userId;
+  const { vanIds, status } = body;
+
+  return this.vanService.updateVanStatusByAdmin(
+    vanIds,
+    adminId,
+    status,
+  );
+}
+
+
+@UseGuards(AuthGuard('jwt'))
+@Post('removeDriverFromVan')
+async removeDriverFromVan(
+  @Req() req: any,
+  @Body() body: { vanId: string },
+) {
+  const adminId = req.user.userId;
+  const vanId = body.vanId;  
+
+  return this.vanService.removeDriverFromVan(vanId, adminId);
+}
+
+
 @UseGuards(AuthGuard('jwt'))
 @Post('update-profile')
 async updateProfile(

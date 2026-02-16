@@ -157,57 +157,84 @@ async getKids(userId: string, userType: string) {
 }
 
 
-async assignVanToStudent(kidId: string, vanId: string, adminId: string) {
+async assignVanToStudents(
+  kidIds: string[],
+  vanId: string,
+  adminId: string,
+) {
   const adminObjectId = new Types.ObjectId(adminId);
-  
 
-
-  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
-  console.log(school._id)
+ 
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
 
   if (!school) {
     throw new UnauthorizedException('School not found');
   }
 
   const schoolIdString = school._id.toString();
-  console.log(schoolIdString)
 
+  if (!kidIds || kidIds.length === 0) {
+    throw new BadRequestException('kidIds array is required');
+  }
 
-
-  // Step 2: Find kid by id
-  const kid = await this.databaseService.repositories.KidModel.findOne({ _id: kidId, schoolId: schoolIdString });
- 
-
-  if (!kid) {
-    throw new BadGatewayException('Kid not found in this school');
+  if (!vanId) {
+    throw new BadRequestException('vanId is required');
   }
 
 
-  if (kid.VanId) {
-    return {
-      message: 'Van already assigned to this student',
-      data: kid
 
-      
-    };
-  }
+  const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
+
+
+  const result =
+    await this.databaseService.repositories.KidModel.updateMany(
+      {
+        _id: { $in: kidObjectIds },
+        schoolId: schoolIdString,
+        $or: [
+          { VanId: null },
+          { VanId: { $exists: false } },
+        ],
+      },
+      {
+        $set: {
+          VanId: vanId,
+        },
+      },
+    );
 
  
-  kid.VanId = vanId;
-  const updatedKid = await kid.save();
+  const updatedKids =
+    await this.databaseService.repositories.KidModel.find(
+      {
+        _id: { $in: kidObjectIds },
+        schoolId: schoolIdString,
+      },
+      {
+        name: 1,
+        VanId: 1,
+        schoolId: 1,
+      },
+    );
 
+ 
   return {
-    message: 'Van assigned successfully',
-    data: updatedKid,
+    message: 'Van assigned to students successfully',
+    modifiedCount: result.modifiedCount,
+    kids: updatedKids,
   };
 }
+
+
 
 async assignVanToDriver(driverId: string, vanId: string, adminId: string) {
   const adminObjectId = new Types.ObjectId(adminId);
   const driverObjectId = new Types.ObjectId(driverId);
   
 
-  // Step 1: Find school by adminId
+ 
   const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
   console.log(school._id)
 
@@ -230,15 +257,15 @@ async assignVanToDriver(driverId: string, vanId: string, adminId: string) {
     throw new BadGatewayException('van not found in this school');
   }
 
-  // Step 3: Check if van already assigned
+ 
   if (van.driverId) {
     return {
-      message: 'Van already assigned to this Driver',
+      message: 'Van already assigned',
       data: van
     };
   }
 
-  // Step 4: Assign new van
+  
   van.driverId = driverObjectId
   const updatedVan = await van.save();
 
@@ -255,7 +282,7 @@ async verifyStudentsByAdmin(
 ) {
   const adminObjectId = new Types.ObjectId(adminId);
 
-
+  // 1. Find school
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -266,16 +293,18 @@ async verifyStudentsByAdmin(
 
   const schoolIdString = school._id.toString();
 
-
+  // 2. Validate status
   if (status !== 'active' && status !== 'inActive') {
     throw new BadRequestException('Invalid status value');
   }
 
+  const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
 
+  // 3. Update kids
   const result =
     await this.databaseService.repositories.KidModel.updateMany(
       {
-        _id: { $in: kidIds.map(id => new Types.ObjectId(id)) },
+        _id: { $in: kidObjectIds },
         schoolId: schoolIdString,
       },
       {
@@ -286,11 +315,82 @@ async verifyStudentsByAdmin(
       },
     );
 
+  // 4. Get updated kids data
+  const updatedKids =
+    await this.databaseService.repositories.KidModel.find({
+      _id: { $in: kidObjectIds },
+      schoolId: schoolIdString,
+    });
+
+  // 5. Response
   return {
     message: 'Students updated successfully',
     modifiedCount: result.modifiedCount,
+    kids: updatedKids,
   };
 }
+
+async removeVanFromKids(
+  kidIds: string[],
+ 
+) {
+
+  const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
+
+  
+
+
+  const result =
+    await this.databaseService.repositories.KidModel.updateMany(
+      {
+        _id: { $in: kidObjectIds },
+      },
+      {
+        $set: {
+          VanId: null,
+        },
+      },
+    );
+
+
+  const updatedKids =
+    await this.databaseService.repositories.KidModel.find(
+      {
+        _id: { $in: kidObjectIds },
+      },
+    
+    );
+
+
+  return {
+    message: 'Van removed from kids successfully',
+    modifiedCount: result.modifiedCount,
+    kids: updatedKids,
+  };
+}
+
+async removeDriverFromVan(vanId: string) {
+  const vanObjectId = new Types.ObjectId(vanId);
+
+
+  const result = await this.databaseService.repositories.VanModel.updateOne(
+    { _id: vanObjectId },
+    { $set: { driverId: null } }
+  );
+
+
+  const updatedVan = await this.databaseService.repositories.VanModel.findOne(
+    { _id: vanObjectId }
+  );
+
+
+  return {
+    message: 'Driver removed from van successfully',
+    modifiedCount: result.modifiedCount,
+    van: updatedVan,
+  };
+}
+
 
 
 async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {

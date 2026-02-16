@@ -27,6 +27,7 @@ async getKids(@Req() req: any) {
 }
 
 
+
 @UseGuards(AuthGuard('jwt'))
 @Post('changeKidStatus')
 async verifyStudents(
@@ -40,6 +41,38 @@ async verifyStudents(
     kidIds,
     adminId,
     status,
+  );
+}
+
+
+
+@Post('removeVanFromKid')
+async removeVanFromKid(
+  @Req() req: any,
+  @Body() body: { kidIds: string[]},
+) {
+ 
+  const { kidIds } = body;
+
+  return this.KidService.removeVanFromKids(
+    kidIds,
+  );
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Post('assignVanToStudents')
+async assignVanToStudents(
+  @Req() req: any,
+  @Body() body: { kidIds: string[], vanId: string },
+) {
+ 
+  const { kidIds, vanId } = body;
+  const adminId = req.user.userId;
+
+  return this.KidService.assignVanToStudents(
+    kidIds,
+    vanId,
+    adminId
   );
 }
 

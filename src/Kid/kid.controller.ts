@@ -36,6 +36,7 @@ async verifyStudents(
 ) {
   const adminId = req.user.userId;
   const { kidIds, status } = body;
+  console.log('Admin ID:', adminId);
 
   return this.KidService.verifyStudentsByAdmin(
     kidIds,

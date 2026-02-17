@@ -281,6 +281,7 @@ async verifyStudentsByAdmin(
   status: string,
 ) {
   const adminObjectId = new Types.ObjectId(adminId);
+  console.log("wali", kidIds)
 
   // 1. Find school
   const school = await this.databaseService.repositories.SchoolModel.findOne({

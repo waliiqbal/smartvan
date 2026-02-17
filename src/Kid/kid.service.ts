@@ -369,27 +369,7 @@ async removeVanFromKids(
   };
 }
 
-async removeDriverFromVan(vanId: string) {
-  const vanObjectId = new Types.ObjectId(vanId);
 
-
-  const result = await this.databaseService.repositories.VanModel.updateOne(
-    { _id: vanObjectId },
-    { $set: { driverId: null } }
-  );
-
-
-  const updatedVan = await this.databaseService.repositories.VanModel.findOne(
-    { _id: vanObjectId }
-  );
-
-
-  return {
-    message: 'Driver removed from van successfully',
-    modifiedCount: result.modifiedCount,
-    van: updatedVan,
-  };
-}
 
 
 

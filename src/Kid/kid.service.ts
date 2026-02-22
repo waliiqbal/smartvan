@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { BadGatewayException, Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { BadGatewayException, Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from "src/database/databaseservice";
 import { CreateKidDto } from './dto/CreateKid.dto';
 import { Types } from 'mongoose';
@@ -52,9 +52,7 @@ async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
 
 async getKids(userId: string, userType: string) {
 
-  // ======================
-  // DRIVER LOGIN CASE
-  // ======================
+
   if (userType !== 'parent') {
 
     const driver =
@@ -67,12 +65,18 @@ async getKids(userId: string, userType: string) {
       });
     if (!van) throw new BadRequestException('Van not found');
 
+   
+ if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
+   
+
     const kids =
       await this.databaseService.repositories.KidModel.aggregate([
 
         { $match: { VanId: van._id.toString() }},
 
-        // VAN LOOKUP
+
         {
           $lookup: {
             from: "vans",
@@ -98,7 +102,34 @@ async getKids(userId: string, userType: string) {
             as:"driver"
           }
         },
-        { $unwind:{ path:"$driver", preserveNullAndEmptyArrays:true }}
+        { $unwind:{ path:"$driver", preserveNullAndEmptyArrays:true }},
+
+          {
+          $lookup: {
+            from: "schools",
+            let: { schoolObjId: { $toObjectId: "$schoolId" } },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$schoolObjId"] }
+                }
+              },
+              {
+                $project: {
+                  schoolName: 1,
+                  schoolEmail: 1
+                }
+              }
+            ],
+            as: "school"
+          }
+        },
+        {
+          $unwind: {
+            path: "$school",
+            preserveNullAndEmptyArrays: true
+          }
+        }
 
       ]);
 
@@ -108,9 +139,7 @@ async getKids(userId: string, userType: string) {
     };
   }
 
-  // ======================
-  // PARENT LOGIN CASE
-  // ======================
+
   const parent =
     await this.databaseService.repositories.parentModel.findById(userId);
   if (!parent) throw new UnauthorizedException('Parent not found');
@@ -120,14 +149,14 @@ async getKids(userId: string, userType: string) {
 
       { $match:{ parentId: parent._id }},
 
-      // VAN LOOKUP
+
       {
         $lookup:{
           from:"vans",
           let:{ vanObjId:{ $toObjectId:"$VanId" }},
           pipeline:[
             { $match:{ $expr:{ $eq:["$_id","$$vanObjId"] }}},
-            { $project:{ carNumber:1, vanNumber:1, driverId:1 }}
+            { $project:{ carNumber:1, vanNumber:1, driverId:1, status:1 }}
           ],
           as:"van"
         }
@@ -146,7 +175,34 @@ async getKids(userId: string, userType: string) {
           as:"driver"
         }
       },
-      { $unwind:{ path:"$driver", preserveNullAndEmptyArrays:true }}
+      { $unwind:{ path:"$driver", preserveNullAndEmptyArrays:true }},
+
+        {
+          $lookup: {
+            from: "schools",
+            let: { schoolObjId: { $toObjectId: "$schoolId" } },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$schoolObjId"] }
+                }
+              },
+              {
+                $project: {
+                  schoolName: 1,
+                  schoolEmail: 1
+                }
+              }
+            ],
+            as: "school"
+          }
+        },
+        {
+          $unwind: {
+            path: "$school",
+            preserveNullAndEmptyArrays: true
+          }
+        },
 
     ]);
 
@@ -401,19 +457,66 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
   }
 
   async getParentActiveTrips(parentId: string) {
-    // Step 1: Parent ke kids fetch (Name + VanId)
+
+    // new changes
+   const parentobjId = new Types.ObjectId(parentId);
+
+     const parent = await this.databaseService.repositories.parentModel.findById(parentobjId);
+
+      if (!parent) { 
+        throw new BadRequestException('Parent not found');  
+        }
+
+        const schoolId = parent.schoolId;
+
+        if (!schoolId) {  
+          throw new BadRequestException('Parent is not associated with any school');
+        }
+   
     const kids = await this.databaseService.repositories.KidModel.find(
-      { parentId: new Types.ObjectId(parentId) },
+      
+      { parentId: new Types.ObjectId(parentId), schoolId: schoolId, status: "active" },
       { VanId: 1, fullname: 1, image: 1 }
     );
+
+    console.log (kids)
+
+    // end new changes 
   
-    if (!kids || kids.length === 0) return [];
+    if (!kids || kids.length === 0) {
+  throw new NotFoundException('Kids not found');
+}
+
   
-    // Step 2: Unique VanIDs extract
+    
     const vanIds = kids.map(k => k.VanId);
     const uniqueVanIds = [...new Set(vanIds)];
   
-    // Step 3: Kids ko van-wise group karo
+   
+// const vanIds = kids
+//   .map(k => k.VanId)
+//   .filter(Boolean); // null / undefined hata do
+
+//   if (vanIds.length === 0) {
+//   return []; 
+// }
+
+
+// const activeVans = await this.databaseService.repositories.VanModel.find({
+//   _id: { $in: vanIds },
+//   status: 'active'
+// }).select('_id');
+
+// if (activeVans.length === 0) {
+//   return []; 
+// }
+
+// // 3) active vans ki ids nikaal lo
+// const activeVanIds = activeVans.map(v => v._id.toString());
+
+// // 4) unique active van ids
+// const uniqueVanIds = [...new Set(activeVanIds)];
+   
     const kidsByVan = kids.reduce((acc, kid) => {
       if (!acc[kid.VanId]) acc[kid.VanId] = [];
       acc[kid.VanId].push({
@@ -485,6 +588,7 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
         $project: {
           tripId: "$_id",
           vanId: "$vanId",
+          Vanstatus: "$van.status",
           kids: 1, // <<----- IMPORTANT: return kids from DB
           startTime: "$tripStart.startTime",
           status: 1,
@@ -534,9 +638,9 @@ async getParentDriversWithSchool(parentId: string) {
   const User = this.databaseService.repositories.driverModel;
   const School = this.databaseService.repositories.SchoolModel;
 
-  // 1) Parent ke kids fetch karo (required fields + VanId + schoolId)
+
   const kids = await Kid.find(
-    { parentId: new Types.ObjectId(parentId) },
+    { parentId: new Types.ObjectId(parentId), status: "active" },
     {
       _id: 1,
       fullname: 1,
@@ -554,8 +658,12 @@ async getParentDriversWithSchool(parentId: string) {
     return { data: [] };
   }
 
-  // 2) Unique VanIds -> ObjectId[]
+
   const vanIds = Array.from(new Set(kids.map(k => k.VanId).filter(Boolean)));
+  if (!vanIds || vanIds.length === 0) {
+  return []; 
+}
+
   const vanObjectIds = vanIds
     .filter(id => Types.ObjectId.isValid(id))
     .map(id => new Types.ObjectId(id));
@@ -806,7 +914,7 @@ async getTripHistoryByParent(
         let: { kidObjId: { $toObjectId: "$kids.kidId" } },
         pipeline: [
           { $match: { $expr: { $eq: ["$_id", "$$kidObjId"] } } },
-          { $project: { fullname: 1 } }
+          { $project: { fullname: 1, image: 1 } }
         ],
         as: "kidInfo",
       },
@@ -833,6 +941,7 @@ async getTripHistoryByParent(
           $push: {
             kidId: "$kids.kidId",
             name: "$kidInfo.fullname",
+            image: "$kidInfo.image",
             time: "$kids.time",
             lat: "$kids.lat",
             long: "$kids.long",
@@ -889,9 +998,7 @@ async getTripHistoryByParent(
     },
   ];
 
-  // ==============================
-  // Step 4: Execute
-  // ==============================
+
   const result = await this.databaseService.repositories.TripModel.aggregate(pipeline);
 
   const trips = result[0]?.data || [];
@@ -1048,26 +1155,32 @@ async getTripHistoryByDriver(
 
 
 async deleteKidByIdAndParent(parentId: string, kidId: string) {
-  const Kid = this.databaseService.repositories.KidModel;
+ const Kid = this.databaseService.repositories.KidModel;
 
-  // 1) Validate ObjectIds
+ 
   if (!Types.ObjectId.isValid(parentId) || !Types.ObjectId.isValid(kidId)) {
     return { message: 'Invalid parentId or kidId' };
   }
 
-  // 2) Find and delete the kid
-  const result = await Kid.deleteOne({
-    _id: new Types.ObjectId(kidId),
-    parentId: new Types.ObjectId(parentId),
-  });
 
-  // 3) Response
-  if (result.deletedCount > 0) {
-    return { message: 'Kid deleted successfully' };
+  const result = await Kid.updateOne(
+    { _id: new Types.ObjectId(kidId), parentId: new Types.ObjectId(parentId) },
+    {
+      $set: {
+        parentId: null,
+        schoolId: null,
+        VanId: null,
+        status: 'inActive',
+      },
+    }
+  );
+
+  
+  if (result.modifiedCount > 0) {
+    return { message: 'Kid marked as inActive and relations removed' };
   } else {
     return { message: 'Kid not found for this parent' };
   }
 }
-
 
 }

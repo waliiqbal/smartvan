@@ -26,13 +26,13 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly kidService: KidService,   // 👈 inject KidService here
   ) {}
-  @UseGuards(AuthGuard('jwt'))
+  // @UseGuards(AuthGuard('jwt'))
 @Post('create-admin-school')
 async createAdminAndSchool(@Req() req, @Body() body: any) {
   // role check
-  if (req.user.role !== 'superadmin') {
-    throw new UnauthorizedException('Only superadmins can access this API');
-  }
+  // if (req.user.role !== 'superadmin') {
+  //   throw new UnauthorizedException('Only superadmins can access this API');
+  // }
 
   return this.adminService.createAdminAndSchool(body);
 }

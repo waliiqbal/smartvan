@@ -36,9 +36,33 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
   }
 
 
+  
+
+
  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
   if (!van) {
     throw new BadRequestException('Van not assigned to this driver');
+  }
+
+  
+
+  const schoolId = van.schoolId;
+  
+  if (!schoolId) {  
+    throw new BadRequestException('Van is not associated with any school');
+  }
+  
+   if (driver.schoolId !== van.schoolId) {
+    throw new BadRequestException('Driver and Van school do not match');
+  }
+
+   if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
+   
+
+  if (!createTripDto.routeId) {
+    throw new BadRequestException('Route ID is required to start a trip');
   }
 
   const today = new Date();
@@ -110,7 +134,26 @@ async pickStudent(driverId, dto: PickStudentDto) {
     throw new BadRequestException('Van not assigned to this driver');
   }
 
-  const trip = await this.databaseService.repositories.TripModel.findById(dto.tripId);
+  const schoolId = van.schoolId;
+  
+  if (!schoolId) {  
+    throw new BadRequestException('Van is not associated with any school');
+  }
+  
+   if (driver.schoolId !== van.schoolId) {
+    throw new BadRequestException('Driver and Van school do not match');
+    
+  }
+
+  const tripObjectId = new Types.ObjectId(dto.tripId);
+
+  console.log(tripObjectId)
+  
+
+   
+
+
+  const trip = await this.databaseService.repositories.TripModel.findById(tripObjectId);
   if (!trip) {
     throw new NotFoundException('Trip not found');
   }
@@ -118,6 +161,19 @@ async pickStudent(driverId, dto: PickStudentDto) {
   if (trip.vanId !== van._id.toString()) {
     throw new BadRequestException("Van does not belong to this trip");
   }
+
+  if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
+
+const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId);
+
+ if (kid.status !== "active")
+  {
+    throw new BadRequestException('Kid is not active');
+  } 
+
+  
 
   trip.kids.push({
     kidId: dto.kidId,
@@ -130,7 +186,7 @@ async pickStudent(driverId, dto: PickStudentDto) {
   await trip.save();
 
 
-  const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId);
+  
 
   if (kid?.parentId) {
     const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
@@ -186,6 +242,16 @@ async endTrip(driverId, dto: EndTripDto) {
 
   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
   if (!van) throw new BadRequestException('Van not assigned to this driver');
+
+  const schoolId = van.schoolId;
+  
+  if (!schoolId) {  
+    throw new BadRequestException('Van is not associated with any school');
+  }
+  
+   if (driver.schoolId !== van.schoolId) {
+    throw new BadRequestException('Driver and Van school do not match');
+  }
 
 
   const trip = await this.databaseService.repositories.TripModel.findById(tripId);

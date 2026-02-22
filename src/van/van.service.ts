@@ -545,7 +545,13 @@ async getDriverKids(
   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id });
   if (!van) throw new BadRequestException('Van not found for this driver');
 
-  // 🔹 Trip validate
+  const schoolId = van.schoolId;
+
+  if (!schoolId) {
+    throw new BadRequestException('School not found for this van'); 
+  }
+
+ 
   const tripObjectId = new Types.ObjectId(tripId);
   const trip = await this.databaseService.repositories.TripModel.findById(tripObjectId);
   if (!trip) {
@@ -558,13 +564,14 @@ async getDriverKids(
   // 🔹 Kids fetch with parent lookup
   const kids = await this.databaseService.repositories.KidModel.aggregate([
     {
-      $match: { VanId: van._id.toString() }
+      $match: { VanId: van._id.toString(), schoolId: schoolId.toString(), status: 'active' },
+
     },
     {
       $lookup: {
-        from: "parents",         // Parent collection ka naam (schema check karke correct karo)
-        localField: "parentId",  // KidModel ka field jisme parentId save hai
-        foreignField: "_id",     // ParentModel ka _id
+        from: "parents",         
+        localField: "parentId",  
+        foreignField: "_id",     
         as: "parent"
       }
     },

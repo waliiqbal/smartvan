@@ -355,176 +355,211 @@ async getLocationByDriver( dto: getLocationDto) {
 
 async getTripsByAdmin(
   AdminId: string,
-  page = 1,
-  limit = 10,
+  page: number = 1,
+  limit: number = 10,
   status?: string,
-  userType?: string
+  userType?: string,
+  driverId?: string,
+  schoolId?: string,
+  date?: string,
 ) {
-  const adminObjectId = new Types.ObjectId(AdminId);
   const skip = (page - 1) * limit;
+  const matchCondition: any = {};
 
-  let schoolFilter: any = {};
-
-
+  // ==============================
+  // USER TYPE LOGIC
+  // ==============================
   if (userType === "admin") {
-    const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
-    if (!school) throw new UnauthorizedException("School not found");
-    schoolFilter = { schoolId: school._id.toString() };
-  } else if (userType === "superadmin") {
-   
-    schoolFilter = {};
-  } else {
+    const school = await this.databaseService.repositories.SchoolModel.findOne({
+      admin: new Types.ObjectId(AdminId),
+    });
+
+    if (!school) {
+      throw new UnauthorizedException("School not found");
+    }
+
+    // Admin sirf apne school ka data dekhega
+    matchCondition.schoolId = school._id.toString();
+  }
+  else if (userType === "superadmin") {
+    // Superadmin ke liye schoolId optional
+    if (schoolId) {
+      matchCondition.schoolId = schoolId;
+    }
+  }
+  else {
     throw new UnauthorizedException("Invalid user type");
   }
 
- 
-  const pipeline: any[] = [
-    {
-      $match: {
-        ...schoolFilter,
-        ...(status ? { status } : {})
-      }
-    },
-  
-   
-    {
-      $addFields: {
-        vanObjectId: {
-          $cond: {
-            if: { $and: [{ $ne: ["$vanId", null] }, { $ne: ["$vanId", ""] }] },
-            then: { $toObjectId: "$vanId" },
-            else: null
-          }
-        }
-      }
-    },
-  
- 
-    {
-      $addFields: {
-        routeObjectId: {
-          $cond: {
-            if: { $and: [{ $ne: ["$routeId", null] }, { $ne: ["$routeId", ""] }] },
-            then: { $toObjectId: "$routeId" },
-            else: null
-          }
-        }
-      }
-    },
-  
+  // ==============================
+  // STATUS FILTER
+  // ==============================
+  if (status) {
+    matchCondition.status = status;
+  }
 
+  // ==============================
+  // DATE FILTER
+  // ==============================
+  if (date) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    matchCondition.updatedAt = {
+      $gte: startOfDay,
+      $lte: endOfDay,
+    };
+  }
+
+  // ==============================
+  // DRIVER → VAN (SINGLE VAN)
+  // ==============================
+  if (driverId) {
+    const van = await this.databaseService.repositories.VanModel.findOne(
+      { driverId: new Types.ObjectId(driverId) },
+      { _id: 1 }
+    );
+
+    // Driver ki van nahi mili → empty result
+    if (!van) {
+      return {
+        message: "Trips fetched successfully",
+        data: [],
+        pagination: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        },
+      };
+    }
+
+    matchCondition.vanId = van._id.toString();
+  }
+
+  // ==============================
+  // AGGREGATION PIPELINE
+  // ==============================
+  const pipeline: any[] = [
+    { $match: matchCondition },
+
+    // ======================
+    // VAN LOOKUP
+    // ======================
     {
       $lookup: {
         from: "vans",
-        localField: "vanObjectId",
-        foreignField: "_id",
-        as: "van"
-      }
+        let: { vanObjId: { $toObjectId: "$vanId" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$vanObjId"] } } },
+        ],
+        as: "van",
+      },
     },
     { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
-  
-    
+
+    // ======================
+    // DRIVER LOOKUP
+    // ======================
     {
       $lookup: {
         from: "drivers",
         localField: "van.driverId",
         foreignField: "_id",
-        as: "driver"
-      }
+        as: "driver",
+      },
     },
     { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
-  
-    // ⭐ ROUTE LOOKUP
+
+    // ======================
+    // ROUTE LOOKUP
+    // ======================
     {
       $lookup: {
         from: "routes",
-        localField: "routeObjectId",
-        foreignField: "_id",
-        as: "route"
-      }
+        let: { routeObjId: { $toObjectId: "$routeId" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$routeObjId"] } } },
+        ],
+        as: "route",
+      },
     },
     { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
-  
-    // Add fields
-    {
-      $addFields: {
-        driverId: { $ifNull: [{ $toString: "$driver._id" }, ""] },
-        driverName: { $ifNull: ["$driver.fullname", ""] },
-        driverImage: { $ifNull: ["$driver.image", ""] },
-        carNumber: { $ifNull: ["$van.carNumber", ""] },
-        carName: { $ifNull: ["$van.vehicleType", ""] },
-  
-        // ⭐ Added fields for route
-        routeTitle: { $ifNull: ["$route.title", ""] },
-        routeTripType: { $ifNull: ["$route.tripType", ""] }
-      }
-    },
-  
-    // ⭐ School Join (your existing code)
-    {
-      $addFields: {
-        schoolObjectId: {
-          $cond: {
-            if: { $and: [{ $ne: ["$schoolId", null] }, { $ne: ["$schoolId", ""] }] },
-            then: { $toObjectId: "$schoolId" },
-            else: null
-          }
-        }
-      }
-    },
+
+    // ======================
+    // SCHOOL LOOKUP
+    // ======================
     {
       $lookup: {
         from: "schools",
-        localField: "schoolObjectId",
-        foreignField: "_id",
-        as: "school"
-      }
+        let: { schoolObjId: { $toObjectId: "$schoolId" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$schoolObjId"] } } },
+        ],
+        as: "school",
+      },
     },
     { $unwind: { path: "$school", preserveNullAndEmptyArrays: true } },
-    {
-      $addFields: {
-        schoolName: { $ifNull: ["$school.name", ""] }
-      }
-    },
-  
-    // Project
+
+    // ======================
+    // FINAL FIELDS
+    // ======================
     {
       $project: {
-        van: 0,
-        driver: 0,
-        school: 0,
-        route: 0,
-        routeObjectId: 0
-      }
+        _id: 1,
+        status: 1,
+        type: 1,
+        tripStart: 1,
+        tripEnd: 1,
+        updatedAt: 1,
+
+        van: {
+          _id: "$van._id",
+          carNumber: "$van.carNumber",
+          vehicleType: "$van.vehicleType",
+        },
+
+        driver: {
+          _id: "$driver._id",
+          fullname: "$driver.fullname",
+          phoneNo: "$driver.phoneNo",
+        },
+
+        route: {
+          _id: "$route._id",
+          title: "$route.title",
+          tripType: "$route.tripType",
+        },
+
+        schoolName: "$school.name",
+      },
     },
-  
+
+    { $sort: { updatedAt: -1 } },
     { $skip: skip },
-    { $limit: limit }
+    { $limit: limit },
   ];
-  
-  
 
+  // ==============================
+  // EXECUTE
+  // ==============================
   const trips = await this.databaseService.repositories.TripModel.aggregate(pipeline);
-
-  // Step 3: Pagination total
-  const total = await this.databaseService.repositories.TripModel.countDocuments({
-    ...schoolFilter,
-    ...(status ? { status } : {})
-  });
+  const total = await this.databaseService.repositories.TripModel.countDocuments(matchCondition);
 
   return {
     message: "Trips fetched successfully",
     data: trips,
-    user: userType,
     pagination: {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit)
-    }
+      totalPages: Math.ceil(total / limit),
+    },
   };
 }
-
 
 async generateGraphData(
   AdminId: string,

@@ -217,6 +217,14 @@ async deleteVanByDriver(@Req() req: any) {
   return this.vanService.deleteVan(driverId);
 }
 
+@UseGuards(AuthGuard('jwt'))
+@Post('deleteVanByAdmin')
+async deleteVanByAdmin(@Req() req: any, @Body('vanId') vanId: string) {
+  const adminId = req.user.userId;
+
+  return this.vanService.deleteVanByAdmin(adminId, vanId);
+}
+
 @Get('getVansBySchoolId/:schoolId')
 async getVansBySchoolId(@Param('schoolId') schoolId: string) {
   return this.vanService.getVansBySchool(schoolId);

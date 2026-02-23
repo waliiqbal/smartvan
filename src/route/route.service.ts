@@ -42,6 +42,36 @@ export class RouteService {
 
   }
 
+  async deleteRouteByAdmin(adminId: string, routeId: string) {
+
+  const adminObjectId = new Types.ObjectId(adminId);
+
+  // Step 1: find school by admin
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  // Step 2: direct delete route
+  const deletedRoute =
+    await this.databaseService.repositories.routeModel.findOneAndDelete({
+      _id: new Types.ObjectId(routeId),
+      schoolId: school._id.toString(),
+    });
+
+  if (!deletedRoute) {
+    throw new BadRequestException('Route not found');
+  }
+
+  return {
+    success: true,
+    message: 'Route deleted successfully',
+  };
+}
+
 //   async getAssignedTripByDriver(driverId: string) {
 //   if (!driverId) {
 //     throw new UnauthorizedException('Invalid driver token');
@@ -133,13 +163,17 @@ async getAssignedTripByDriver(driverId: string) {
     throw new UnauthorizedException('Invalid driver token');
   }
 
-  // Step 1: Driver find karo
+
   const driver = await this.databaseService.repositories.driverModel.findById(
     new Types.ObjectId(driverId),
     { fullname: 1 }
   );
   if (!driver) {
     throw new BadRequestException('Driver not found');
+  }
+
+  if (driver.isDelete === true) {
+    throw new BadRequestException('Driver account is deleted');
   }
 
   // Step 2: Van find karo driverId se
@@ -149,6 +183,10 @@ async getAssignedTripByDriver(driverId: string) {
   );
   if (!van) {
     throw new BadRequestException('Van not found for this driver');
+  }
+
+   if (van.status !== 'active') {
+    throw new BadRequestException('Van is inactive');
   }
 
   console.log(van._id)

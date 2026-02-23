@@ -640,7 +640,7 @@ async getParentDriversWithSchool(parentId: string) {
 
 
   const kids = await Kid.find(
-    { parentId: new Types.ObjectId(parentId), status: "active" },
+    { parentId: new Types.ObjectId(parentId) },
     {
       _id: 1,
       fullname: 1,

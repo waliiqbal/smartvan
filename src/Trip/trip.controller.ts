@@ -56,19 +56,31 @@ async getTrips(
   @Req() req: any,
   @Query('page') page: string,
   @Query('limit') limit: string,
-  @Query('status') status?: string, // start | ongoing | end
+  @Query('status') status?: string,        // start | ongoing | end
+  @Query('driverId') driverId?: string,    // ✅ optional
+  @Query('schoolId') schoolId?: string,    // ✅ optional (superadmin)
+  @Query('date') date?: string             // ✅ optional
 ) {
   const adminId = req.user.userId;
 
-  console.log(req.user);
-  if (!adminId) throw new UnauthorizedException("Admin not found in token");
+  if (!adminId) {
+    throw new UnauthorizedException("Admin not found in token");
+  }
 
   const pageNumber = page ? parseInt(page) : 1;
   const limitNumber = limit ? parseInt(limit) : 10;
 
-  return this.tripService.getTripsByAdmin(adminId, pageNumber, limitNumber, status, req?.user?.role);
+  return this.tripService.getTripsByAdmin(
+    adminId,
+    pageNumber,
+    limitNumber,
+    status,
+    req?.user?.role,   // userType
+    driverId,
+    schoolId,
+    date
+  );
 }
-
 @UseGuards(AuthGuard('jwt'))
 @Get("getDashboard")
 async getDashboard(

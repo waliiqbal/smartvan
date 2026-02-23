@@ -69,5 +69,15 @@ async editRoute(
   return this.routetService.editRoute(adminId, routeId, dto);
 }
 
+@UseGuards(AuthGuard('jwt'))
+@Post('deleteRouteByAdmin')
+async deleteRouteByAdmin(
+  @Req() req: any,
+  @Body('routeId') routeId: string
+) {
+  const adminId = req.user.userId;
+
+  return this.routetService.deleteRouteByAdmin(adminId, routeId);
+}
 
   }

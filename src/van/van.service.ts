@@ -11,6 +11,7 @@ import * as crypto from 'crypto';
 
 import { EditDriverDto } from './dto/editDriver.dto';
 import { title } from 'process';
+import { Admin } from 'src/admin/admin.schema';
 
 @Injectable()
 export class VanService { 
@@ -732,12 +733,50 @@ async deleteVan(driverId: string) {
 
   // Step 2: driverId ko null kar do
   van.driverId = null;
+  van.status = 'inactive'; 
 
   // Step 3: Save updated document
   await van.save();
 
   return {
     message: 'Van unlinked from driver successfully',
+  };
+}
+
+async deleteVanByAdmin(adminId: string, vanId: string) {
+
+  const adminObjectId = new Types.ObjectId(adminId);
+  const vanObjectId = new Types.ObjectId(vanId);
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  const schoolIdString = school._id.toString();
+  console.log(schoolIdString, vanObjectId)
+  
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    _id: vanObjectId,
+    schoolId: schoolIdString,
+  });
+
+  if (!van) {
+    throw new BadRequestException('Van not found');
+  }
+
+  // Step 2: driverId ko null kar do
+  van.schoolId = null;
+  van.status = 'inActive'; 
+
+  // Step 3: Save updated document
+  await van.save();
+  
+
+  return {
+    message: 'Van deleted from School successfully',
   };
 }
 

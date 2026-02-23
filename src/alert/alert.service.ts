@@ -378,6 +378,18 @@ async getAlertsForParent(parentId: string) {
     parentId: new Types.ObjectId(parentId), 
   });
 
+  const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+
+  if (!parent) {
+    throw new NotFoundException('Parent not found');
+  }
+
+   if (parent.isDelete === true) {
+    throw new BadRequestException('Parent account is deleted');
+  }
+
+  
+
   if (!kids.length) {
     return {
       message: 'No alerts found for this parent',
@@ -424,6 +436,9 @@ async getAlertsForDriver(driverId: string) {
     };
   }
 
+    if (driver.isDelete === true) { 
+    throw new BadRequestException('Driver account is deleted');
+  }
   
   const notifications =
     await this.databaseService.repositories.notificationModel
@@ -442,11 +457,23 @@ async getDriverNotificationsByParent(parentId: string) {
 
    const parentObjectId = new Types.ObjectId(parentId);
 
+    const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+
+  if (!parent) {
+    throw new NotFoundException('Parent not found');
+  }
+
+   if (parent.isDelete === true) {
+    throw new BadRequestException('Parent account is deleted');
+  }
+
+
     const notifications = await this.databaseService.repositories.notificationModel.find({
       parentId: parentObjectId,
       type: 'driver', 
     }).sort({ createdAt: -1 });
 
+    
    
 
     return {

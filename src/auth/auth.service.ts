@@ -338,7 +338,7 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
     }
     const model = this.getUserModel(userType);
 
-    // ✅ Step 4: Check if already registered with password
+  
     const userWithPassword = await model.findOne({
       email,
       password: { $ne: null },
@@ -348,14 +348,14 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
       throw new UnauthorizedException('This email is already registered with password. Use normal login.');
     }
 
-    // ✅ Step 5: Check if social user already exists
+   
     let user = await model.findOne({
       providerId: socialId
     });
 
     console.log("eeeeeeeeeeeee", email, socialId, user);
 
-    // ✅ Step 6: Create user if not exist
+  
     if (!user) {
       user = new model({
         fullname: userName,
@@ -378,19 +378,19 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
 
     if (fcmToken) {
       if (!user.fcmToken) {
-        // Agar DB me fcmToken nahi hai to save karo
+  
         user.fcmToken = fcmToken;
         await user.save();
       } else if (user.fcmToken !== fcmToken) {
-        // Agar DB wala different hai to update karo
+       
         user.fcmToken = fcmToken;
         await user.save();
       }
-      // Agar same hai to kuch mat karo
+   
     }
 
 
-    // ✅ Step 7: Generate token
+
     const payload = {
       sub: user._id,
       email: user.email,

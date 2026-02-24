@@ -18,13 +18,13 @@ export class PromotionBannerController {
   ) {}
 
   // ADMIN
-  @Post()
+  @Post('create')
   create(@Body() dto: CreatePromotionBannerDto) {
     return this.promotionBannerService.create(dto);
   }
 
   // ADMIN
-  @Get()
+  @Get("findAll")
   findAll() {
     return this.promotionBannerService.findAll();
   }
@@ -35,7 +35,7 @@ export class PromotionBannerController {
     return this.promotionBannerService.findActive();
   }
 
-  @Get(':id')
+  @Get('findOne/:id')
   findOne(@Param('id') id: string) {
     return this.promotionBannerService.findOne(id);
   }

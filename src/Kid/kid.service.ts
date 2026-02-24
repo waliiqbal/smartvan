@@ -218,9 +218,98 @@ async assignVanToStudents(
   vanId: string,
   adminId: string,
 ) {
-  const adminObjectId = new Types.ObjectId(adminId);
 
- 
+  const adminObjectId = new Types.ObjectId(adminId);
+    const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  } 
+
+  const van = await this.databaseService.repositories.VanModel.findOne({ _id: vanId, schoolId: school._id.toString() });
+
+  if (!van) {
+    throw new BadGatewayException('Van not found in this school');
+  }
+
+    if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
+
+  const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
+
+  // 1️⃣ Van assign karo
+  await this.databaseService.repositories.KidModel.updateMany(
+    { _id: { $in: kidObjectIds } },
+    { $set: { VanId: vanId } },
+  );
+
+  // 2️⃣ Kids fetch karo (sirf parentId aur fullname chahiye)
+  const kids = await this.databaseService.repositories.KidModel.find(
+    { _id: { $in: kidObjectIds } },
+    { parentId: 1, fullname: 1 },
+  );
+
+  // 3️⃣ Unique parentIds nikal lo
+  const uniqueParentIds = [
+    ...new Set(
+      kids
+        .filter(k => k.parentId)
+        .map(k => k.parentId.toString())
+    ),
+  ];
+
+  // 4️⃣ Har parent ko notification bhej do
+  for (const parentId of uniqueParentIds) {
+
+    const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+
+    if (!parent) continue;
+
+    const title = "Van Assigned";
+    const message = "Your child has been assigned to the van.";
+
+    // 🔔 Push notification
+    if (parent.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        parent.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+        }
+      );
+    }
+
+    // 💾 DB me save
+    await this.databaseService.repositories.notificationModel.create({
+      type: "admin",
+      parentId: parent._id,
+      VanId: vanId,
+      title,
+      message,
+      actionType: "VAN_ASSIGNED",
+      status: "sent",
+      date: new Date(),
+    });
+  }
+
+  return {
+    message: "Van assigned & parents notified successfully",
+  };
+}
+
+
+async assignVanToDriver(
+  driverId: string,
+  vanId: string,
+  adminId: string,
+) {
+
+  const adminObjectId = new Types.ObjectId(adminId);
+  const driverObjectId = new Types.ObjectId(driverId);
+
+  // 1️⃣ Check School
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -231,103 +320,77 @@ async assignVanToStudents(
 
   const schoolIdString = school._id.toString();
 
-  if (!kidIds || kidIds.length === 0) {
-    throw new BadRequestException('kidIds array is required');
+  // 2️⃣ Find Driver
+  const driver = await this.databaseService.repositories.driverModel.findOne({
+    _id: driverObjectId,
+    schoolId: schoolIdString,
+  });
+
+  if (!driver) {
+    throw new BadRequestException('Driver not found in this school');
   }
 
-  if (!vanId) {
-    throw new BadRequestException('vanId is required');
-  }
-
-
-
-  const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
-
-
-  const result =
-    await this.databaseService.repositories.KidModel.updateMany(
-      {
-        _id: { $in: kidObjectIds },
-        schoolId: schoolIdString,
-        $or: [
-          { VanId: null },
-          { VanId: { $exists: false } },
-        ],
-      },
-      {
-        $set: {
-          VanId: vanId,
-        },
-      },
-    );
-
- 
-  const updatedKids =
-    await this.databaseService.repositories.KidModel.find(
-      {
-        _id: { $in: kidObjectIds },
-        schoolId: schoolIdString,
-      },
-      {
-        name: 1,
-        VanId: 1,
-        schoolId: 1,
-      },
-    );
-
- 
-  return {
-    message: 'Van assigned to students successfully',
-    modifiedCount: result.modifiedCount,
-    kids: updatedKids,
-  };
-}
-
-
-
-async assignVanToDriver(driverId: string, vanId: string, adminId: string) {
-  const adminObjectId = new Types.ObjectId(adminId);
-  const driverObjectId = new Types.ObjectId(driverId);
-  
-
- 
-  const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
-  console.log(school._id)
-
-  if (!school) {
-    throw new UnauthorizedException('School not found');
-  }
-
-  const Driver = await this.databaseService.repositories.driverModel.findOne({ _id: driverObjectId });
-
-  const schoolIdString = school._id.toString();
-  console.log(schoolIdString)
-
-
-
- 
-  const van = await this.databaseService.repositories.VanModel.findOne({ _id: vanId, schoolId: schoolIdString });
- 
+  // 3️⃣ Find Van
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    _id: vanId,
+    schoolId: schoolIdString,
+  });
 
   if (!van) {
-    throw new BadGatewayException('van not found in this school');
+    throw new BadGatewayException('Van not found in this school');
   }
 
- 
+  if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
+
   if (van.driverId) {
     return {
       message: 'Van already assigned',
-      data: van
+      data: van,
     };
   }
 
-  
-  van.driverId = driverObjectId
+  // 4️⃣ Assign Driver
+  van.driverId = driverObjectId;
   const updatedVan = await van.save();
 
+  // 5️⃣ Send Notification to Driver
+  const title = "Van Assigned";
+  const message = "You have been assigned a new van.";
+
+  if (driver.fcmToken) {
+    await this.firebaseAdminService.sendToDevice(
+      driver.fcmToken,
+      {
+        notification: {
+          title,
+          body: message,
+        },
+        data: {
+          vanId: van._id.toString(),
+          status: "VAN_ASSIGNED",
+          time: new Date().toISOString(),
+        },
+      },
+    );
+  }
+
+  // 6️⃣ Save Notification in DB
+  await this.databaseService.repositories.notificationModel.create({
+    type: "admin",
+    driverId: driver._id,
+    VanId: van._id,
+    title,
+    message,
+    actionType: "VAN_ASSIGNED",
+    status: "sent",
+    date: new Date(),
+  });
+
   return {
-    message: 'Van assigned successfully',
-    data: updatedVan 
+    message: 'Van assigned successfully & driver notified',
+    data: updatedVan,
   };
 }
 
@@ -336,10 +399,10 @@ async verifyStudentsByAdmin(
   adminId: string,
   status: string,
 ) {
-  const adminObjectId = new Types.ObjectId(adminId);
-  console.log("wali", kidIds)
 
-  // 1. Find school
+  const adminObjectId = new Types.ObjectId(adminId);
+
+  // 1️⃣ Find School
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -350,40 +413,88 @@ async verifyStudentsByAdmin(
 
   const schoolIdString = school._id.toString();
 
-  // 2. Validate status
+  // 2️⃣ Validate status
   if (status !== 'active' && status !== 'inActive') {
     throw new BadRequestException('Invalid status value');
   }
 
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
 
-  // 3. Update kids
-  const result =
-    await this.databaseService.repositories.KidModel.updateMany(
-      {
-        _id: { $in: kidObjectIds },
-        schoolId: schoolIdString,
-      },
-      {
-        $set: {
-          verifiedBySchool: true,
-          status: status,
-        },
-      },
-    );
-
-  // 4. Get updated kids data
-  const updatedKids =
-    await this.databaseService.repositories.KidModel.find({
+  // 3️⃣ Update Kids
+  const result = await this.databaseService.repositories.KidModel.updateMany(
+    {
       _id: { $in: kidObjectIds },
       schoolId: schoolIdString,
-    });
+    },
+    {
+      $set: {
+        verifiedBySchool: true,
+        status: status,
+      },
+    },
+  );
 
-  // 5. Response
+  // 4️⃣ Fetch Updated Kids (parentId chahiye notification ke liye)
+  const kids = await this.databaseService.repositories.KidModel.find(
+    {
+      _id: { $in: kidObjectIds },
+      schoolId: schoolIdString,
+    },
+    {
+      parentId: 1,
+      fullname: 1,
+    },
+  );
+
+  // 5️⃣ Unique Parent IDs
+  const uniqueParentIds = [
+    ...new Set(
+      kids
+        .filter(k => k.parentId)
+        .map(k => k.parentId.toString()),
+    ),
+  ];
+
+  // 6️⃣ Send Notification to Each Parent
+  for (const parentId of uniqueParentIds) {
+
+    const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+    if (!parent) continue;
+
+    const title = "Student Verification Update";
+    const message =
+      status === "active"
+        ? "Your child has been approved by the school."
+        : "Your child has been marked inactive by the school.";
+
+    // 🔔 Push
+    if (parent.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        parent.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+        },
+      );
+    }
+
+    // 💾 Save in DB
+    await this.databaseService.repositories.notificationModel.create({
+      type: "admin",
+      parentId: parent._id,
+      title,
+      message,
+      actionType: "STUDENT_VERIFIED",
+      status: "sent",
+      date: new Date(),
+    });
+  }
+
   return {
-    message: 'Students updated successfully',
+    message: 'Students updated successfully & parents notified',
     modifiedCount: result.modifiedCount,
-    kids: updatedKids,
   };
 }
 

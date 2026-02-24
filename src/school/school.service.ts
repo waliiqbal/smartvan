@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from "src/database/databaseservice";
@@ -176,5 +176,33 @@ console.log(vans)
       return schools;
 
   }
+
+  async changeSchoolStatusByAdmin(
+  schoolId: string,
+  status: string,
+) {
+
+
+  // 1️⃣ Validate status
+  if (status !== 'active' && status !== 'inActive') {
+    throw new BadRequestException('Invalid status value');
+  }
+
+  
+const school = await this.databaseService.repositories.SchoolModel.findById(schoolId);  
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+ 
+  school.status = status;
+  await school.save();
+
+  return {
+    message: `School status updated to ${status}`,
+    schoolId: school._id,
+    status: school.status,
+  };
+}
 
   }

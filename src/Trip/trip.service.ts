@@ -16,6 +16,7 @@ import { DatabaseService } from "src/database/databaseservice";
 import { EndTripDto } from './dto/tripend.dto';
 import { getLocationDto } from './dto/getLocations';
 import { FirebaseAdminService } from 'src/notification/firebase-admin.service';
+import { Kid } from 'src/Kid/kid.schema';
 @Injectable()
 export class TripService {
   constructor(
@@ -353,6 +354,8 @@ async getLocationByDriver( dto: getLocationDto) {
   };
 }
 
+
+
 async getTripsByAdmin(
   AdminId: string,
   page: number = 1,
@@ -361,7 +364,7 @@ async getTripsByAdmin(
   userType?: string,
   driverId?: string,
   schoolId?: string,
-  date?: string,
+  date?: string
 ) {
   const skip = (page - 1) * limit;
   const matchCondition: any = {};
@@ -372,22 +375,16 @@ async getTripsByAdmin(
   if (userType === "admin") {
     const school = await this.databaseService.repositories.SchoolModel.findOne({
       admin: new Types.ObjectId(AdminId),
-    });
+    }).lean();
 
     if (!school) {
       throw new UnauthorizedException("School not found");
     }
 
-    // Admin sirf apne school ka data dekhega
     matchCondition.schoolId = school._id.toString();
-  }
-  else if (userType === "superadmin") {
-    // Superadmin ke liye schoolId optional
-    if (schoolId) {
-      matchCondition.schoolId = schoolId;
-    }
-  }
-  else {
+  } else if (userType === "superadmin") {
+    if (schoolId) matchCondition.schoolId = schoolId;
+  } else {
     throw new UnauthorizedException("Invalid user type");
   }
 
@@ -399,7 +396,7 @@ async getTripsByAdmin(
   }
 
   // ==============================
-  // DATE FILTER
+  // DATE FILTER (updatedAt day range)
   // ==============================
   if (date) {
     const startOfDay = new Date(date);
@@ -408,10 +405,7 @@ async getTripsByAdmin(
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    matchCondition.updatedAt = {
-      $gte: startOfDay,
-      $lte: endOfDay,
-    };
+    matchCondition.updatedAt = { $gte: startOfDay, $lte: endOfDay };
   }
 
   // ==============================
@@ -421,19 +415,13 @@ async getTripsByAdmin(
     const van = await this.databaseService.repositories.VanModel.findOne(
       { driverId: new Types.ObjectId(driverId) },
       { _id: 1 }
-    );
+    ).lean();
 
-    // Driver ki van nahi mili → empty result
     if (!van) {
       return {
         message: "Trips fetched successfully",
         data: [],
-        pagination: {
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-        },
+        pagination: { total: 0, page, limit, totalPages: 0 },
       };
     }
 
@@ -441,29 +429,23 @@ async getTripsByAdmin(
   }
 
   // ==============================
-  // AGGREGATION PIPELINE
+  // AGGREGATION PIPELINE (NO KIDS LOOKUP)
   // ==============================
   const pipeline: any[] = [
     { $match: matchCondition },
 
-    // ======================
     // VAN LOOKUP
-    // ======================
     {
       $lookup: {
         from: "vans",
         let: { vanObjId: { $toObjectId: "$vanId" } },
-        pipeline: [
-          { $match: { $expr: { $eq: ["$_id", "$$vanObjId"] } } },
-        ],
+        pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$vanObjId"] } } }],
         as: "van",
       },
     },
     { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
 
-    // ======================
     // DRIVER LOOKUP
-    // ======================
     {
       $lookup: {
         from: "drivers",
@@ -474,39 +456,29 @@ async getTripsByAdmin(
     },
     { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
 
-    // ======================
     // ROUTE LOOKUP
-    // ======================
     {
       $lookup: {
         from: "routes",
         let: { routeObjId: { $toObjectId: "$routeId" } },
-        pipeline: [
-          { $match: { $expr: { $eq: ["$_id", "$$routeObjId"] } } },
-        ],
+        pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$routeObjId"] } } }],
         as: "route",
       },
     },
     { $unwind: { path: "$route", preserveNullAndEmptyArrays: true } },
 
-    // ======================
     // SCHOOL LOOKUP
-    // ======================
     {
       $lookup: {
         from: "schools",
         let: { schoolObjId: { $toObjectId: "$schoolId" } },
-        pipeline: [
-          { $match: { $expr: { $eq: ["$_id", "$$schoolObjId"] } } },
-        ],
+        pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$schoolObjId"] } } }],
         as: "school",
       },
     },
     { $unwind: { path: "$school", preserveNullAndEmptyArrays: true } },
 
-    // ======================
     // FINAL FIELDS
-    // ======================
     {
       $project: {
         _id: 1,
@@ -514,6 +486,8 @@ async getTripsByAdmin(
         type: 1,
         tripStart: 1,
         tripEnd: 1,
+        kids: 1, // keep original kids array (objects)
+        locations: 1,
         updatedAt: 1,
 
         van: {
@@ -534,7 +508,8 @@ async getTripsByAdmin(
           tripType: "$route.tripType",
         },
 
-        schoolName: "$school.name",
+        schoolName: "$school.schoolName",
+        contactNumber: "$school.contactNumber",
       },
     },
 
@@ -547,11 +522,62 @@ async getTripsByAdmin(
   // EXECUTE
   // ==============================
   const trips = await this.databaseService.repositories.TripModel.aggregate(pipeline);
+
   const total = await this.databaseService.repositories.TripModel.countDocuments(matchCondition);
+
+  // ==============================
+  // KIDS ENRICHMENT (MAP APPROACH)
+  // kids: [{ kidId: "string", lat,long,time,status }]
+  // ==============================
+  const allKidIds: string[] = trips.flatMap((t: any) =>
+    Array.isArray(t.kids) ? t.kids.map((k: any) => k?.kidId).filter(Boolean) : []
+  );
+
+  const uniqueKidIds = [...new Set(allKidIds)]
+    .filter((id) => Types.ObjectId.isValid(id)); // safe check
+
+  // If no kids, return as-is
+  if (uniqueKidIds.length === 0) {
+    return {
+      message: "Trips fetched successfully",
+      data: trips,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // Fetch kids details once
+  const kidsDetails = await this.databaseService.repositories.KidModel.find(
+    { _id: { $in: uniqueKidIds.map((id) => new Types.ObjectId(id)) } },
+    { fullname: 1, image: 1 }
+  ).lean();
+
+  const kidMap = new Map<string, any>(
+    kidsDetails.map((k: any) => [k._id.toString(), k])
+  );
+
+  // Merge into trips.kids
+  const updatedTrips = trips.map((trip: any) => ({
+    ...trip,
+    kids: Array.isArray(trip.kids)
+      ? trip.kids.map((k: any) => {
+          const kd = k?.kidId ? kidMap.get(k.kidId) : null;
+          return {
+            ...k,
+            fullname: kd?.fullname ?? null,
+            image: kd?.image ?? null,
+          };
+        })
+      : [],
+  }));
 
   return {
     message: "Trips fetched successfully",
-    data: trips,
+    data: updatedTrips,
     pagination: {
       total,
       page,

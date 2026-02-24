@@ -771,7 +771,7 @@ async removeKids(AdminId: string, kidIds: string[]) {
   // Step 2: Update each kid whose schoolId matches
   const result = await this.databaseService.repositories.KidModel.updateMany(
     { _id: { $in: kidIds }, schoolId: school._id },
-    { $set: { schoolId: null } }
+    { $set: { schoolId: null, status: "inActive", } }
   );
 
   return {

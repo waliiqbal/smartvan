@@ -7,6 +7,7 @@ import {
   Patch,
   Delete,
   Body,
+  UnauthorizedException,
   Req
 } from '@nestjs/common';
 import { SchoolService } from './school.service'
@@ -43,6 +44,26 @@ export class SchoolController {
       async getAllSchools(@Req() req: any) {
         return this.schoolService.getAllSchools();
       }
+
+    @UseGuards(AuthGuard('jwt'))
+@Post('changeSchoolStatus')
+async changeSchoolStatus(
+  @Req() req: any,
+  @Body() body: { schoolId: string; status: string },
+) {
+
+   if (req.user.role !== 'superadmin') {
+      throw new UnauthorizedException('Only superadmins can access this API');
+    }
+  
+  const { schoolId, status } = body;
+
+  return this.schoolService.changeSchoolStatusByAdmin(
+    schoolId,
+    status,
+  );
+}
+
    }
 
 

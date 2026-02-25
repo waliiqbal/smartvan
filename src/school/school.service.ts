@@ -129,7 +129,7 @@ console.log(vans)
   
    
   const drivers = await this.databaseService.repositories.driverModel
-      .find({ schoolId })
+      .find({ schoolId, isDelete: { $ne: true } }) // 👈 filter out deleted drivers
       .sort({ _id: -1 }) // 👈 newest driver first
       .lean();
 
@@ -158,7 +158,8 @@ console.log(vans)
       NIC: driver.NIC,
       alternatePhoneNo: driver.alternatePhoneNo,
       address: driver.address,
-      driverImage: driver.image
+      driverImage: driver.image,
+      isDelete: driver.isDelete,
     }))},
       };
     } catch (error) {

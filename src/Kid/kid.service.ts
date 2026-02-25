@@ -237,19 +237,19 @@ async assignVanToStudents(
 
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
 
-  // 1️⃣ Van assign karo
+  
   await this.databaseService.repositories.KidModel.updateMany(
     { _id: { $in: kidObjectIds } },
     { $set: { VanId: vanId } },
   );
 
-  // 2️⃣ Kids fetch karo (sirf parentId aur fullname chahiye)
+
   const kids = await this.databaseService.repositories.KidModel.find(
     { _id: { $in: kidObjectIds } },
     { parentId: 1, fullname: 1 },
   );
 
-  // 3️⃣ Unique parentIds nikal lo
+ 
   const uniqueParentIds = [
     ...new Set(
       kids
@@ -263,12 +263,12 @@ async assignVanToStudents(
 
     const parent = await this.databaseService.repositories.parentModel.findById(parentId);
 
-    if (!parent) continue;
+    if (!parent || parent.isDelete === true) continue;
 
     const title = "Van Assigned";
     const message = "Your child has been assigned to the van.";
 
-    // 🔔 Push notification
+  
     if (parent.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
@@ -402,7 +402,7 @@ async verifyStudentsByAdmin(
 
   const adminObjectId = new Types.ObjectId(adminId);
 
-  // 1️⃣ Find School
+  
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -413,7 +413,7 @@ async verifyStudentsByAdmin(
 
   const schoolIdString = school._id.toString();
 
-  // 2️⃣ Validate status
+  
   if (status !== 'active' && status !== 'inActive') {
     throw new BadRequestException('Invalid status value');
   }
@@ -459,7 +459,7 @@ async verifyStudentsByAdmin(
   for (const parentId of uniqueParentIds) {
 
     const parent = await this.databaseService.repositories.parentModel.findById(parentId);
-    if (!parent) continue;
+    if (!parent || parent.isDelete === true) continue;
 
     const title = "Student Verification Update";
     const message =
@@ -480,7 +480,7 @@ async verifyStudentsByAdmin(
       );
     }
 
-    // 💾 Save in DB
+    
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
       parentId: parent._id,

@@ -22,7 +22,7 @@ export class ReportService {
   
 const kid = await this.databaseService.repositories.KidModel.findOne({
   _id: new Types.ObjectId(kidId),
-  parentId: new Types.ObjectId(parentId), // agar parentId bhi ObjectId hai to
+  parentId: new Types.ObjectId(parentId), 
 });
   
   if (!kid) {

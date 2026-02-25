@@ -7,6 +7,7 @@ import { PassportModule } from '@nestjs/passport';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OtpModule } from 'src/user/schema/otp/otp.module';
+import { FirebaseAdminModule } from 'src/notification/firebase.module';
 
 
 
@@ -15,7 +16,8 @@ import { OtpModule } from 'src/user/schema/otp/otp.module';
   imports: [
      OtpModule,
     ConfigModule,
-
+      FirebaseAdminModule,
+    
     
     PassportModule,
 

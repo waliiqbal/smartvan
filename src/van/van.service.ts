@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, UnauthorizedException, NotFoundExcepti
 import { DatabaseService } from "src/database/databaseservice";
 import { CreateVanDto } from './dto/create-van.dto';
 import { OtpService } from 'src/user/schema/otp/otp.service';
+import { FirebaseAdminService } from 'src/notification/firebase-admin.service';
 import { EditVanByAdminDto } from './dto/editVanByAdmin.dto';
 import { CreateVanByAdminDto } from './dto/createVanByAdmin.dto';
 import { Types } from 'mongoose';
@@ -18,7 +19,9 @@ export class VanService {
   constructor(
    
     private databaseService: DatabaseService,
-    private  OtpService:  OtpService
+    private  OtpService:  OtpService,
+     private firebaseAdminService: FirebaseAdminService
+    
 
    
   ) {}
@@ -114,7 +117,8 @@ async addVanByAdmin(dto: CreateVanByAdminDto, adminId: string) {
       venCapacity: dto.venCapacity,
       deviceId: dto.deviceId,
       assignRoute: dto.assignRoute,
-      venImage: dto.venImage
+      venImage: dto.venImage,
+      status: 'active'
     });
 
     const savedVan = await newVan.save();
@@ -211,7 +215,7 @@ async getVansByAdmin(
 
   const skip = (page - 1) * limit;
 
-  // 2. Aggregation pipeline
+
   const pipeline = [
     {
       $match: {
@@ -378,7 +382,7 @@ async updateVanStatusByAdmin(
 ) {
   const adminObjectId = new Types.ObjectId(adminId);
 
- 
+  // 1️⃣ Find school linked with admin
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -389,18 +393,19 @@ async updateVanStatusByAdmin(
 
   const schoolIdString = school._id.toString();
 
- 
+  // 2️⃣ Validate status
   if (status !== 'active' && status !== 'inActive') {
     throw new BadRequestException('Invalid status value');
   }
 
+  // 3️⃣ Validate vanIds
   if (!vanIds || vanIds.length === 0) {
     throw new BadRequestException('vanIds array is required');
   }
 
   const vanObjectIds = vanIds.map(id => new Types.ObjectId(id));
 
- 
+  // 4️⃣ Update vans status
   const result =
     await this.databaseService.repositories.VanModel.updateMany(
       {
@@ -408,30 +413,81 @@ async updateVanStatusByAdmin(
         schoolId: schoolIdString,
       },
       {
-        $set: {
-          status: status,
-        },
+        $set: { status },
       },
     );
 
-  // 4. Fetch updated vans
-  const updatedVans =
+  // 5️⃣ Fetch updated vans (driver ObjectId needed)
+  const vans =
     await this.databaseService.repositories.VanModel.find(
       {
         _id: { $in: vanObjectIds },
         schoolId: schoolIdString,
       },
       {
+        driver: 1,
         carNumber: 1,
         status: 1,
       },
     );
 
- 
+  // 6️⃣ Get unique driver IDs
+  const uniqueDriverIds = [
+    ...new Set(
+      vans
+        .filter(v => v.driverId)
+        .map(v => v.driverId.toString()),
+    ),
+  ];
+
+  // 7️⃣ Send notification to each driver
+  for (const driverId of uniqueDriverIds) {
+
+    const driver =
+      await this.databaseService.repositories.driverModel.findById(driverId);
+    if (!driver) continue;
+
+    // Vans assigned to this driver
+    const driverVans = vans.filter(
+      v => v.driverId?.toString() === driverId,
+    );
+
+    const vanNumbers = driverVans.map(v => v.carNumber).join(', ');
+
+    const title = 'Van Status Update';
+    const message =
+      status === 'active'
+        ? `Your van(s) ${vanNumbers} have been activated by the school.`
+        : `Your van(s) ${vanNumbers} have been marked inactive by the school.`;
+
+    // 🔔 Push notification
+    if (driver.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        driver.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+        },
+      );
+    }
+
+    // 💾 Save notification in DB
+    await this.databaseService.repositories.notificationModel.create({
+      type: 'admin',
+      driverId: driver._id,
+      title,
+      message,
+      actionType: 'VAN_STATUS_UPDATED',
+      status: 'sent',
+      date: new Date(),
+    });
+  }
+
   return {
-    message: 'Vans status updated successfully',
+    message: 'Vans status updated successfully & drivers notified',
     modifiedCount: result.modifiedCount,
-    vans: updatedVans,
   };
 }
 

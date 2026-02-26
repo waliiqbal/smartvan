@@ -644,6 +644,7 @@ async getDriverKids(
         _id: 1,
         fullname: 1,
         image: 1,
+        status: 1,
         "parent.address": 1,
         "parent.phoneNo": 1,
         "parent.alternatePhoneNo": 1
@@ -666,6 +667,7 @@ async getDriverKids(
     _id: kid._id,
     name: kid.fullname,
     image: kid.image,
+    status: kid.status,
     picked: tripKidIds.has(kid._id.toString()),
     parent: kid.parent ? {
       address: kid.parent.address,

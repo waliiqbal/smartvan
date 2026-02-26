@@ -179,11 +179,13 @@ async getAssignedTripByDriver(driverId: string) {
   // Step 2: Van find karo driverId se
   const van = await this.databaseService.repositories.VanModel.findOne(
     { driverId: new Types.ObjectId(driverId) },
-    { assignRoute: 1, carNumber: 1, vehicleType: 1 }
+    { assignRoute: 1, carNumber: 1, vehicleType: 1, status: 1 }
   );
   if (!van) {
     throw new BadRequestException('Van not found for this driver');
   }
+
+
 
    if (van.status !== 'active') {
     throw new BadRequestException('Van is inactive');

@@ -587,7 +587,7 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
     const kids = await this.databaseService.repositories.KidModel.find(
       
       { parentId: new Types.ObjectId(parentId), schoolId: schoolId, status: "active" },
-      { VanId: 1, fullname: 1, image: 1 }
+      { VanId: 1, fullname: 1, image: 1, status: 1 }
     );
 
     console.log (kids)
@@ -634,6 +634,7 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
         id: kid._id.toString(),
         name: kid.fullname,
         image: kid?.image || "",
+        status: kid?.status || "",
       });
       return acc;
     }, {});

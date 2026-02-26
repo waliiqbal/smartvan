@@ -429,8 +429,8 @@ export class OtpService {
    <tr>
   <td style="padding:20px 30px; text-align:center; font-size:12px; color:#999999; border-top:1px solid #eeeeee;">
     SmartVan · 
-    <a href="mailto:smartvaninfo@example.com" style="color:#4a67f5; text-decoration:none;">
-      smartvaninfo@example.com
+    <a href="mailto:info@smartvan.pk" style="color:#4a67f5; text-decoration:none;">
+      info@smartvan.pk
     </a>
     <br><br>
     © 2026 SmartVan. All rights reserved.
@@ -543,9 +543,9 @@ async sendPassword(toEmail: string, password: string): Promise<void> {
           <td style="padding:20px 30px; text-align:center; font-size:12px;
                      color:#999999; border-top:1px solid #eeeeee;">
             SmartVan ·
-            <a href="mailto:smartvaninfo@example.com"
+            <a href="mailto:info@smartvan.pk"
                style="color:#4a67f5; text-decoration:none;">
-              smartvaninfo@example.com
+              info@smartvan.pk
             </a>
             <br><br>
             © 2026 SmartVan. All rights reserved.

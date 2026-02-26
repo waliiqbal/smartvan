@@ -38,6 +38,11 @@ async addVan(createVanDto: CreateVanDto, userId: string, userType: string) {
     throw new UnauthorizedException('Driver not found');
   }
 
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driver._id }); 
+  if (van) {  
+    throw new BadRequestException('You already have a van assigned'); 
+  }
+
   // Step 3: DTO se sab fields nikaalo
   const { 
     licenceImageFront, 
@@ -87,6 +92,7 @@ async getVans(userId: string, userType: string) {
 
   // Step 3: Vans fetch karo by driverId
   const vans = await this.databaseService.repositories.VanModel.find({ driverId: driver._id });
+   
 
   // Step 4: Wrap in "data"
   return {

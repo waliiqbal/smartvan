@@ -51,7 +51,7 @@ export class Van {
   expiryDate?: string;
 
 
- @Prop({required: false, default: 'inactive' })
+ @Prop({required: false, default: 'inActive' })
 status: string;
 }
 

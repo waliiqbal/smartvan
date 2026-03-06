@@ -46,7 +46,7 @@ export class UploadController {
     private readonly configService: ConfigService,
   ) {}
 
-  @Post('file')
+  @Post('image')
 @UseInterceptors(
   FileInterceptor('file', createMulterOptions(new ConfigService())), // ✅ safe
 )

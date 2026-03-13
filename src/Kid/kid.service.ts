@@ -402,7 +402,6 @@ async verifyStudentsByAdmin(
 
   const adminObjectId = new Types.ObjectId(adminId);
 
-  
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -413,7 +412,6 @@ async verifyStudentsByAdmin(
 
   const schoolIdString = school._id.toString();
 
-  
   if (status !== 'active' && status !== 'inActive') {
     throw new BadRequestException('Invalid status value');
   }
@@ -434,7 +432,7 @@ async verifyStudentsByAdmin(
     },
   );
 
-  // 4️⃣ Fetch Updated Kids (parentId chahiye notification ke liye)
+  // 4️⃣ Fetch Updated Kids
   const kids = await this.databaseService.repositories.KidModel.find(
     {
       _id: { $in: kidObjectIds },
@@ -462,10 +460,18 @@ async verifyStudentsByAdmin(
     if (!parent || parent.isDelete === true) continue;
 
     const title = "Student Verification Update";
+
+    // yahan student names add kiye gaye
+    const kidsOfParent = kids.filter(
+      k => k.parentId && k.parentId.toString() === parentId,
+    );
+
+    const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
+
     const message =
       status === "active"
-        ? "Your child has been approved by the school."
-        : "Your child has been marked inactive by the school.";
+        ? `Your child ${kidNames} has been approved by the school.`
+        : `Your child ${kidNames} has been marked inactive by the school.`;
 
     // 🔔 Push
     if (parent.fcmToken) {
@@ -480,7 +486,6 @@ async verifyStudentsByAdmin(
       );
     }
 
-    
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
       parentId: parent._id,

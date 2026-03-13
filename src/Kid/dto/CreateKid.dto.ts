@@ -24,7 +24,7 @@ export class CreateKidDto {
 
   @IsOptional()
   @IsString()
-  grade?: string;
+  grade?: number;
 
   @IsOptional()
   @IsString()

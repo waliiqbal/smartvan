@@ -50,6 +50,8 @@ export const createMulterOptions = (configService: ConfigService) => {
   const storage = multerS3({
     s3,
     bucket: configService.get<string>('AWS_BUCKET_NAME'),
+
+     acl: 'public-read',
     metadata: (req, file, cb) => {
       cb(null, { fieldName: file.fieldname });
     },

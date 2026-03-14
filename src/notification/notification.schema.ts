@@ -12,14 +12,15 @@ export class Notification {
   @Prop()
   type?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
-  parentId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Van', required: false })
-  VanId?: Types.ObjectId;
+    @Prop({ required: false })
+  parentId?: string;
 
-   @Prop({ type: Types.ObjectId, ref: 'School', required: false })
-  schoolId?: Types.ObjectId;
+    @Prop({ required: false })
+  VanId?: string;
+
+    @Prop({ required: false })
+  schoolId?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Route', required: false })
   RouteId?: Types.ObjectId;

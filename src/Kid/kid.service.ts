@@ -489,7 +489,7 @@ async verifyStudentsByAdmin(
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
       schoolId: schoolIdString,
-      parentId: parent._id,
+      parentId: parent._id.toString(),
       title,
       message,
       actionType: "STUDENT_VERIFIED",

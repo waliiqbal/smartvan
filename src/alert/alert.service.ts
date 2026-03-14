@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { BadGatewayException, Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from "src/database/databaseservice";
+import { FirebaseAdminService } from 'src/notification/firebase-admin.service'; 
 
 import { Types } from 'mongoose';
 import mongoose from 'mongoose';
@@ -16,6 +17,8 @@ export class alertService {
   constructor(
    
     private databaseService: DatabaseService,
+    private firebaseAdminService: FirebaseAdminService
+    
 
 
 
@@ -38,7 +41,7 @@ export class alertService {
     }
   
     const notificationData: any = {
-      schoolId: school._id,
+      schoolId: school._id.toString(),
       message: message || "",
       alertType,
       recipientType,
@@ -64,7 +67,7 @@ export class alertService {
       if (!van.driverId)
         throw new NotFoundException("Driver not assigned to this van");
   
-      notificationData.VanId = vanObjectId;
+      notificationData.VanId = van._id.toString();
   
       // ⭐ DRIVER FCM
       const driver = await this.databaseService.repositories.driverModel.findOne({
@@ -125,6 +128,19 @@ export class alertService {
     const notification =
       new this.databaseService.repositories.notificationModel(notificationData);
     const savedNotification = await notification.save();
+
+
+      // Sending notification to each device
+    for (const token of targetUsersFCM) {
+        const payload = {
+            notification: {
+                title: alertType,
+                body: message,
+            },
+        };
+        await this.firebaseAdminService.sendToDevice(token, payload);
+    }
+
   
     // 7️⃣ Final Response
     return {
@@ -282,7 +298,7 @@ async editAlert(adminId: string, alertId: string, updateData: any) {
   // 2️⃣ Alert document fetch karo
   const existingAlert = await this.databaseService.repositories.notificationModel.findOne({
     _id: alertObjectId,
-    schoolId: school._id,
+    schoolId: school._id.toString(),
   });
 
   if (!existingAlert) {
@@ -315,7 +331,7 @@ async editAlert(adminId: string, alertId: string, updateData: any) {
     }
 
     // VanId add/update karo
-    existingAlert.VanId = vanObjectId;
+    existingAlert.VanId = vanId;
   }
 
   // 5️⃣ Agar type ALL_DRIVERS ya ALL_PARENTS ho gaya

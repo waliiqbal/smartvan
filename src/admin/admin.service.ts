@@ -741,12 +741,19 @@ async getKids(AdminId: string, query: any) {
 
   const kidsName =
     typeof query.kidsName === "string" ? query.kidsName.trim() : "";
+
   const parentName =
     typeof query.parentName === "string" ? query.parentName.trim() : "";
+
   const driverName =
     typeof query.driverName === "string" ? query.driverName.trim() : "";
+
   const carNumber =
     typeof query.carNumber === "string" ? query.carNumber.trim() : "";
+
+  // grade string me ayega query se
+  const grade =
+    typeof query.grade === "string" ? Number(query.grade) : null;
 
   const skip = (page - 1) * limit;
 
@@ -762,16 +769,12 @@ async getKids(AdminId: string, query: any) {
       },
     },
 
-    // Convert VanId to ObjectId for Van lookup
     {
       $addFields: {
         vanObjectId: {
           $cond: {
             if: {
-              $and: [
-                { $ne: ["$VanId", null] },
-                { $ne: ["$VanId", ""] },
-              ],
+              $and: [{ $ne: ["$VanId", null] }, { $ne: ["$VanId", ""] }],
             },
             then: { $toObjectId: "$VanId" },
             else: null,
@@ -780,7 +783,6 @@ async getKids(AdminId: string, query: any) {
       },
     },
 
-    // Parent lookup
     {
       $lookup: {
         from: "parents",
@@ -796,7 +798,6 @@ async getKids(AdminId: string, query: any) {
       },
     },
 
-    // Van lookup
     {
       $lookup: {
         from: "vans",
@@ -812,7 +813,6 @@ async getKids(AdminId: string, query: any) {
       },
     },
 
-    // Driver lookup
     {
       $lookup: {
         from: "drivers",
@@ -846,6 +846,13 @@ async getKids(AdminId: string, query: any) {
   if (carNumber) {
     andFilters.push({
       "van.carNumber": { $regex: carNumber, $options: "i" },
+    });
+  }
+
+  // grade filter
+  if (grade !== null && !isNaN(grade)) {
+    andFilters.push({
+      grade: grade,
     });
   }
 

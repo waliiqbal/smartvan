@@ -409,7 +409,8 @@ async getAlertsForParent(parentId: string) {
       { schoolId: { $in: schoolIds } },
       { $or: [
           { recipientType: 'ALL_PARENTS' },
-          { recipientType: 'SPECIFIC_VAN', VanId: { $in: vanIds } }
+          { recipientType: 'SPECIFIC_VAN', VanId: { $in: vanIds } },
+            { parentId: parentId },
         ]
       }
     ]

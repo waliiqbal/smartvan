@@ -81,8 +81,11 @@ export class alertService {
 
   // ⭐ VAN KE KIDS NIKALO
   const kids = await this.databaseService.repositories.KidModel.find({
-    vanId: van._id.toString(),
+    VanId: van._id.toString(),
   });
+
+ 
+
 
   // ⭐ KIDS SE PARENT IDS
   const parentIds = kids.map((k) => k.parentId);
@@ -95,8 +98,11 @@ export class alertService {
     fcmToken: { $ne: null },
   });
 
+
+
   // ⭐ PARENTS KE FCM TOKEN ARRAY ME ADD
   const parentFCM = parents.map((p) => p.fcmToken);
+ 
 
   targetUsersFCM.push(...parentFCM);
 }
@@ -129,7 +135,7 @@ export class alertService {
         schoolId: school._id.toString(),
       });
   
-      const parentIds = kids.map((k) => k.parentId);
+    const parentIds = [...new Set(kids.map((k) => k.parentId))];
   
       const parents = await this.databaseService.repositories.parentModel.find({
         _id: { $in: parentIds },
@@ -139,6 +145,7 @@ export class alertService {
       });
   
       targetUsersFCM = parents.map((p) => p.fcmToken);
+    
     }
   
    

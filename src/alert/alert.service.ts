@@ -51,34 +51,56 @@ export class alertService {
     let targetUsersFCM: string[] = []; 
   
     
-    if (recipientType === "SPECIFIC_VAN") {
-      if (!vanId) {
-        throw new BadRequestException("vanId is required for SPECIFIC_VAN alerts");
-      }
-  
-      const vanObjectId = new Types.ObjectId(vanId);
-  
-      const van = await this.databaseService.repositories.VanModel.findById(
-        vanObjectId
-      );
-  
-      if (!van) throw new NotFoundException("Van not found");
-  
-      if (!van.driverId)
-        throw new NotFoundException("Driver not assigned to this van");
-  
-      notificationData.VanId = van._id.toString();
-  
-      // ⭐ DRIVER FCM
-      const driver = await this.databaseService.repositories.driverModel.findOne({
-        _id: van.driverId,
-        isDelete: false,
-      });
-  
-      if (driver?.fcmToken) {
-        targetUsersFCM.push(driver.fcmToken);
-      }
-    }
+  if (recipientType === "SPECIFIC_VAN") {
+  if (!vanId) {
+    throw new BadRequestException("vanId is required for SPECIFIC_VAN alerts");
+  }
+
+  const vanObjectId = new Types.ObjectId(vanId);
+
+  const van = await this.databaseService.repositories.VanModel.findById(
+    vanObjectId
+  );
+
+  if (!van) throw new NotFoundException("Van not found");
+
+  if (!van.driverId)
+    throw new NotFoundException("Driver not assigned to this van");
+
+  notificationData.VanId = van._id.toString();
+
+  // ⭐ DRIVER FCM
+  const driver = await this.databaseService.repositories.driverModel.findOne({
+    _id: van.driverId,
+    isDelete: false,
+  });
+
+  if (driver?.fcmToken) {
+    targetUsersFCM.push(driver.fcmToken);
+  }
+
+  // ⭐ VAN KE KIDS NIKALO
+  const kids = await this.databaseService.repositories.KidModel.find({
+    vanId: van._id.toString(),
+  });
+
+  // ⭐ KIDS SE PARENT IDS
+  const parentIds = kids.map((k) => k.parentId);
+
+  // ⭐ PARENTS NIKALO
+  const parents = await this.databaseService.repositories.parentModel.find({
+    _id: { $in: parentIds },
+    userType: "parent",
+    isDelete: false,
+    fcmToken: { $ne: null },
+  });
+
+  // ⭐ PARENTS KE FCM TOKEN ARRAY ME ADD
+  const parentFCM = parents.map((p) => p.fcmToken);
+
+  targetUsersFCM.push(...parentFCM);
+}
+
   
    
     else if (recipientType === "ALL_DRIVERS") {
@@ -165,7 +187,7 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
     throw new UnauthorizedException("Invalid admin or school not found");
   }
 
-  const schoolId = school._id;
+  const schoolId = school._id.toString();
 
   // 2️⃣ Aggregation (filtered by schoolId)
   const alerts = await this.databaseService.repositories.notificationModel.aggregate([

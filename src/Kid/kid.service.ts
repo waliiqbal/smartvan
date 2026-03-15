@@ -220,45 +220,67 @@ async assignVanToStudents(
 ) {
 
   const adminObjectId = new Types.ObjectId(adminId);
-    const school = await this.databaseService.repositories.SchoolModel.findOne({ admin: adminObjectId });
+
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
   if (!school) {
     throw new UnauthorizedException('School not found');
-  } 
+  }
 
-  const van = await this.databaseService.repositories.VanModel.findOne({ _id: vanId, schoolId: school._id.toString() });
+  const schoolIdString = school._id.toString();
+
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    _id: vanId,
+    schoolId: schoolIdString,
+  });
 
   if (!van) {
     throw new BadGatewayException('Van not found in this school');
   }
 
-    if (van.status !== "active") {
+  if (van.status !== "active") {
     throw new BadRequestException('Van is not active');
   }
 
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
 
-  
+  // 1️⃣ Update Kids
   await this.databaseService.repositories.KidModel.updateMany(
-    { _id: { $in: kidObjectIds } },
-    { $set: { VanId: vanId } },
+    {
+      _id: { $in: kidObjectIds },
+      schoolId: schoolIdString,
+    },
+    {
+      $set: {
+        VanId: vanId,
+      },
+    },
   );
 
-
+  // 2️⃣ Fetch Kids
   const kids = await this.databaseService.repositories.KidModel.find(
-    { _id: { $in: kidObjectIds } },
-    { parentId: 1, fullname: 1 },
+    {
+      _id: { $in: kidObjectIds },
+      schoolId: schoolIdString,
+    },
+    {
+      parentId: 1,
+      fullname: 1,
+    },
   );
 
- 
+  // 3️⃣ Unique Parent IDs
   const uniqueParentIds = [
     ...new Set(
       kids
         .filter(k => k.parentId)
-        .map(k => k.parentId.toString())
+        .map(k => k.parentId.toString()),
     ),
   ];
 
-  // 4️⃣ Har parent ko notification bhej do
+  // 4️⃣ Send Notification
   for (const parentId of uniqueParentIds) {
 
     const parent = await this.databaseService.repositories.parentModel.findById(parentId);
@@ -266,9 +288,17 @@ async assignVanToStudents(
     if (!parent || parent.isDelete === true) continue;
 
     const title = "Van Assigned";
-    const message = "Your child has been assigned to the van.";
 
-  
+    // Parent ke kids filter
+    const kidsOfParent = kids.filter(
+      k => k.parentId && k.parentId.toString() === parentId,
+    );
+
+    const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
+
+    const message = `Your child ${kidNames} has been assigned to the van.`;
+
+    // 🔔 Push Notification
     if (parent.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
@@ -277,11 +307,11 @@ async assignVanToStudents(
             title,
             body: message,
           },
-        }
+        },
       );
     }
 
-    // 💾 DB me save
+    // 💾 Save Notification
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
       parentId: parent._id,
@@ -298,7 +328,6 @@ async assignVanToStudents(
     message: "Van assigned & parents notified successfully",
   };
 }
-
 
 async assignVanToDriver(
   driverId: string,
@@ -379,8 +408,10 @@ async assignVanToDriver(
   // 6️⃣ Save Notification in DB
   await this.databaseService.repositories.notificationModel.create({
     type: "admin",
-    driverId: driver._id,
-    VanId: van._id,
+    schoolId: schoolIdString,
+    driverId: driver._id.toString(),
+    infoType: "Information",
+    VanId: van._id.toString(),
     title,
     message,
     actionType: "VAN_ASSIGNED",
@@ -490,6 +521,7 @@ async verifyStudentsByAdmin(
       type: "admin",
       schoolId: schoolIdString,
       parentId: parent._id.toString(),
+      infoType: "Information",
       title,
       message,
       actionType: "STUDENT_VERIFIED",

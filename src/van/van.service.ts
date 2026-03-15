@@ -346,6 +346,8 @@ async getVansByAdmin(
 
 async getVanById(vanId: string) {
   // 1. Van find karo
+
+    console.log("API HIT HO GAYI");
   const van = await this.databaseService.repositories.VanModel.findById(vanId);
 
   if (!van) {
@@ -387,6 +389,7 @@ async updateVanStatusByAdmin(
   status: string,
 ) {
   const adminObjectId = new Types.ObjectId(adminId);
+   console.log("API HIT HO GAYI");
 
   // 1️⃣ Find school linked with admin
   const school = await this.databaseService.repositories.SchoolModel.findOne({
@@ -410,6 +413,7 @@ async updateVanStatusByAdmin(
   }
 
   const vanObjectIds = vanIds.map(id => new Types.ObjectId(id));
+  console.log(vanObjectIds);  
 
   // 4️⃣ Update vans status
   const result =
@@ -423,6 +427,8 @@ async updateVanStatusByAdmin(
       },
     );
 
+    console.log(result);
+
   // 5️⃣ Fetch updated vans (driver ObjectId needed)
   const vans =
     await this.databaseService.repositories.VanModel.find(
@@ -431,11 +437,13 @@ async updateVanStatusByAdmin(
         schoolId: schoolIdString,
       },
       {
-        driver: 1,
+        driverId: 1,
         carNumber: 1,
         status: 1,
       },
     );
+
+    console.log(vans);
 
   // 6️⃣ Get unique driver IDs
   const uniqueDriverIds = [
@@ -446,11 +454,15 @@ async updateVanStatusByAdmin(
     ),
   ];
 
+  console.log(uniqueDriverIds);
+
   // 7️⃣ Send notification to each driver
   for (const driverId of uniqueDriverIds) {
 
     const driver =
       await this.databaseService.repositories.driverModel.findById(driverId);
+
+      console.log(driver) 
     if (!driver) continue;
 
     // Vans assigned to this driver
@@ -467,6 +479,8 @@ async updateVanStatusByAdmin(
         : `Your van(s) ${vanNumbers} have been marked inactive by the school.`;
 
     // 🔔 Push notification
+
+  
     if (driver.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,
@@ -482,7 +496,9 @@ async updateVanStatusByAdmin(
     // 💾 Save notification in DB
     await this.databaseService.repositories.notificationModel.create({
       type: 'admin',
-      driverId: driver._id,
+      schoolId: schoolIdString,
+      driverId: driver._id.toString(),
+      infoType: "Information",
       title,
       message,
       actionType: 'VAN_STATUS_UPDATED',

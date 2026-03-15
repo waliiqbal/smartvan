@@ -198,9 +198,15 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
 
   // 2️⃣ Aggregation (filtered by schoolId)
   const alerts = await this.databaseService.repositories.notificationModel.aggregate([
-    {
-      $match: { schoolId: schoolId },
-    },
+{
+  $match: {
+    schoolId: schoolId,
+    $or: [
+      { infoType: { $exists: false } },
+      { infoType: { $ne: "Information" } }
+    ]
+  }
+},
     {
       $lookup: {
         from: "vans",
@@ -238,6 +244,7 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
   // 3️⃣ Total count
   const total = await this.databaseService.repositories.notificationModel.countDocuments({
     schoolId: schoolId,
+    infoType: { $ne: "Information" }
   });
 
   // 4️⃣ Return response with same structure as other APIs

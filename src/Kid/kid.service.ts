@@ -219,6 +219,7 @@ async assignVanToStudents(
   adminId: string,
 ) {
 
+
   const adminObjectId = new Types.ObjectId(adminId);
 
   const school = await this.databaseService.repositories.SchoolModel.findOne({
@@ -236,6 +237,8 @@ async assignVanToStudents(
     schoolId: schoolIdString,
   });
 
+
+
   if (!van) {
     throw new BadGatewayException('Van not found in this school');
   }
@@ -244,7 +247,10 @@ async assignVanToStudents(
     throw new BadRequestException('Van is not active');
   }
 
+  console.log(van)
+
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
+  console.log(kidObjectIds)
 
   // 1️⃣ Update Kids
   await this.databaseService.repositories.KidModel.updateMany(
@@ -270,6 +276,7 @@ async assignVanToStudents(
       fullname: 1,
     },
   );
+
 
   // 3️⃣ Unique Parent IDs
   const uniqueParentIds = [
@@ -298,6 +305,8 @@ async assignVanToStudents(
 
     const message = `Your child ${kidNames} has been assigned to the van.`;
 
+    console.log (parent);
+
     // 🔔 Push Notification
     if (parent.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
@@ -314,7 +323,9 @@ async assignVanToStudents(
     // 💾 Save Notification
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
-      parentId: parent._id,
+      parentId: parent._id.toString(),
+      schoolId: schoolIdString,
+      infoType: "Information",
       VanId: vanId,
       title,
       message,

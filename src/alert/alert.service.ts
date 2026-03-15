@@ -478,9 +478,26 @@ async getAlertsForParent(parentId: string) {
 
 async getAlertsForDriver(driverId: string) {
 
+  const driverObjectId = new Types.ObjectId(driverId);
+  console.log(driverObjectId)
+
   const driver = await this.databaseService.repositories.driverModel.findById(
-    driverId
+   driverObjectId
   );
+
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    driverId: driverObjectId,
+  });
+
+  if (!van) {
+    return {
+      message: "Driver not found",
+      data: { notifications: [] }
+    };
+  }
+
+  const vanId = van._id;
+
 
   if (!driver) {
     return {
@@ -493,10 +510,16 @@ async getAlertsForDriver(driverId: string) {
     throw new BadRequestException('Driver account is deleted');
   }
   
-  const notifications =
-    await this.databaseService.repositories.notificationModel
-      .find({ recipientType: "ALL_DRIVERS" })
-      .sort({ date: -1 });
+const notifications =
+  await this.databaseService.repositories.notificationModel
+    .find({
+      $or: [
+        { recipientType: "ALL_DRIVERS" },
+        { recipientType: "SPECIFIC_VAN", VanId: vanId },
+        {VanId: vanId},
+      ]
+    })
+    .sort({ date: -1 });
 
   return {
     message: notifications.length

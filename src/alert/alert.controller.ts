@@ -93,6 +93,8 @@ async deleteAlert(@Req() req: any, @Body('alertId') alertId: string) {
 async getAlertsForDriver(@Req() req: any) {
   const  userId  = req.user.userId; 
 
+  console.log(userId)
+
   return this.AlertService.getAlertsForDriver(userId);
 }
 

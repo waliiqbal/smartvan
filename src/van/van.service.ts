@@ -465,10 +465,13 @@ async updateVanStatusByAdmin(
       console.log(driver) 
     if (!driver) continue;
 
-    // Vans assigned to this driver
+   
     const driverVans = vans.filter(
       v => v.driverId?.toString() === driverId,
     );
+
+        const vanId = driverVans[0]?._id?.toString();
+    if (!vanId) continue;
 
     const vanNumbers = driverVans.map(v => v.carNumber).join(', ');
 
@@ -493,11 +496,13 @@ async updateVanStatusByAdmin(
       );
     }
 
+ 
+
     // 💾 Save notification in DB
     await this.databaseService.repositories.notificationModel.create({
       type: 'admin',
       schoolId: schoolIdString,
-      driverId: driver._id.toString(),
+      VanId: vanId,
       infoType: "Information",
       title,
       message,

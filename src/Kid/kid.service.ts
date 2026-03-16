@@ -326,6 +326,7 @@ async assignVanToStudents(
       parentId: parent._id.toString(),
       schoolId: schoolIdString,
       infoType: "Information",
+      infoType2: "forParents",
       VanId: vanId,
       title,
       message,

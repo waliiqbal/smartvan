@@ -16,6 +16,10 @@ export class Notification {
     @Prop()
   infoType?: string;
 
+      @Prop()
+  infoType2?: string;
+
+
     @Prop({ required: false })
   parentId?: string;
 

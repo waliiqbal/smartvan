@@ -7,6 +7,7 @@ import { Types } from 'mongoose';
 import mongoose from 'mongoose';
 
 import { AddAlertDto } from './dto/addAlertdto';
+import { info } from 'console';
 
 
 
@@ -203,7 +204,8 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
     schoolId: schoolId,
     $or: [
       { infoType: { $exists: false } },
-      { infoType: { $ne: "Information" } }
+      { infoType: { $ne: "Information" } },
+   
     ]
   }
 },
@@ -235,6 +237,8 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
         schoolId: 1,
         VanId: 1,
         vanNumber: "$vanInfo.carNumber",
+        infoType: 1,
+        infoType2: 1
       },
     },
     { $skip: skip },
@@ -244,7 +248,8 @@ async getAlerts(adminId: string, page = 1, limit = 10) {
   // 3️⃣ Total count
   const total = await this.databaseService.repositories.notificationModel.countDocuments({
     schoolId: schoolId,
-    infoType: { $ne: "Information" }
+    infoType: { $ne: "Information" },
+    infoType2: { $ne: "forParents" }
   });
 
   // 4️⃣ Return response with same structure as other APIs
@@ -511,15 +516,19 @@ async getAlertsForDriver(driverId: string) {
   }
   
 const notifications =
-  await this.databaseService.repositories.notificationModel
-    .find({
-      $or: [
-        { recipientType: "ALL_DRIVERS" },
-        { recipientType: "SPECIFIC_VAN", VanId: vanId },
-        { VanId: vanId, type: { $ne: "driver" } },
-        { VanId: vanId, infoType2: { $ne: "forParents" }}
-      ]
-    })
+  await this.databaseService.repositories.notificationModel.find({
+    $and: [
+      {
+        $or: [
+          { recipientType: "ALL_DRIVERS" },
+          { recipientType: "SPECIFIC_VAN", VanId: vanId },
+          { VanId: vanId } // sirf van wali notifications
+        ]
+      },
+      { type: { $ne: "driver" } },
+      { infoType2: { $ne: "forParents" } }
+    ]
+  })
     .sort({ date: -1 });
 
   return {

@@ -29,6 +29,20 @@ export class RouteService {
    
     const schoolIdString = school._id.toString();
 
+    //   if (dto.vanId) {
+
+    // const existingRoute =
+    //   await this.databaseService.repositories.routeModel.findOne({
+    //     vanId: dto.vanId,
+    //     schoolId: schoolIdString
+    //   });
+
+    // if (existingRoute) {
+    //   throw new BadRequestException("This van is already assigned to another route");
+    // }
+
+  
+
 
     const newRoute = await this.databaseService.repositories.routeModel.create({
       ...dto,

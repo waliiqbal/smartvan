@@ -516,7 +516,7 @@ const notifications =
       $or: [
         { recipientType: "ALL_DRIVERS" },
         { recipientType: "SPECIFIC_VAN", VanId: vanId },
-        {VanId: vanId},
+        { VanId: vanId, type: { $ne: "driver" } }
       ]
     })
     .sort({ date: -1 });

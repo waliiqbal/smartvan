@@ -74,6 +74,7 @@ async startTrip(driverId: string, createTripDto: CreateTripDto) {
 
   const getTrip = await this.databaseService.repositories.TripModel.findOne({ 
     routeId: createTripDto.routeId, 
+    type: createTripDto.type,
     createdAt: {
     $gte: today,     
     $lt: tomorrow   
@@ -174,6 +175,8 @@ const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId)
     throw new BadRequestException('Kid is not active');
   } 
 
+
+  
   
 
   trip.kids.push({
@@ -216,8 +219,10 @@ const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId)
  
     await this.databaseService.repositories.notificationModel.create({
       type: "driver",
-      parentId: kid.parentId,
-      VanId: van._id,
+      schoolId: van.schoolId,
+      infoType: "Information",
+      parentId: kid.parentId.toString(),
+      VanId: van._id.toString(),
       title: title,
       message: message,
       actionType: "PICKED",
@@ -283,6 +288,7 @@ async endTrip(driverId, dto: EndTripDto) {
   for (const kidEntry of trip.kids) {
 
     const kidDoc = await this.databaseService.repositories.KidModel.findById(kidEntry.kidId);
+    const SchoolId = kidDoc?.schoolId;
     if (!kidDoc?.parentId) continue; // agar parentId nahi hai to skip
 
     const parent = await this.databaseService.repositories.parentModel.findById(kidDoc.parentId);
@@ -312,8 +318,10 @@ const message = `${kidDoc.fullname} has been safely dropped.`;
 
     await this.databaseService.repositories.notificationModel.create({
       type: "driver",
-      parentId: kidDoc.parentId,
-      VanId: van._id,
+      infoType: "Information",
+      parentId: kidDoc.parentId.toString(),
+      schoolId: SchoolId,
+      VanId: van._id.toString(),
       title: title,
       message: message,
       actionType: "DROPPED",

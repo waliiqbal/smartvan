@@ -23,7 +23,7 @@ export class Route {
   startTime?: string;
 
   // Trip type — morning, evening, afternoon, night
-  @Prop({ required: false, enum: ['morning', 'evening', 'afternoon', 'night'] })
+  @Prop({ required: false, enum: ["pick", "drop"] })
   tripType?: string;
 
   // Trip days — har din ke liye boolean

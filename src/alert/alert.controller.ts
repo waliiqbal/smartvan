@@ -200,6 +200,326 @@ async getPrivacyPolicy(@Req() req: any) {
   };
 }
 
+@Get('aboutSmartVan')
+async getAboutSmartVan(@Req() req: any) {
+  return {
+    success: true,
+    title: 'About Smart Van',
+    html: `
+      <p>
+        SmartVan is an intelligent school transportation management system designed
+        to bring safety, transparency, and efficiency to daily student commutes.
+      </p>
+
+      <p>
+        It bridges the gap between parents, schools, and transport providers
+        through real-time technology and seamless communication.
+      </p>
+
+      <p>
+        In today’s fast-paced world, ensuring the safety of children during travel
+        has become a top priority for every parent and educational institution.
+      </p>
+
+      <p>
+        SmartVan addresses this challenge by offering a fully connected and
+        automated transportation ecosystem built for modern schools.
+      </p>
+
+      <p>
+        SmartVan is created with the vision to redefine how school transportation
+        is managed and experienced by all stakeholders.
+      </p>
+
+      <p>
+        It replaces traditional manual processes with smart, digital, and
+        data-driven solutions that improve visibility and control.
+      </p>
+
+      <p>
+        The platform ensures that every student’s journey is monitored, secure,
+        organized, and optimized from pickup to drop-off.
+      </p>
+
+      <p>
+        With SmartVan, parents no longer need to worry about their child’s
+        whereabouts during transit because they can track the vehicle in real time.
+      </p>
+
+      <p>
+        Parents also receive instant updates and notifications related to arrival,
+        pickup, drop-off, delays, and emergencies.
+      </p>
+
+      <p>
+        This level of transparency brings peace of mind to families and builds
+        trust between schools and parents.
+      </p>
+
+      <p>
+        For schools, SmartVan provides complete operational control over their
+        transportation system through a centralized admin platform.
+      </p>
+
+      <p>
+        School administrators can manage routes, assign students, monitor drivers,
+        view attendance, and generate useful reports.
+      </p>
+
+      <p>
+        This eliminates the need for manual coordination and significantly reduces
+        administrative effort and communication gaps.
+      </p>
+
+      <p>
+        Drivers also benefit from a guided and simplified experience through a
+        dedicated application tailored to their daily tasks.
+      </p>
+
+      <p>
+        They can access route details, view student pickup lists, navigate stops,
+        and update trip-related activities in real time.
+      </p>
+
+      <p>
+        This improves efficiency, reduces confusion, and helps ensure timely and
+        accurate pickups and drop-offs.
+      </p>
+
+      <p>
+        SmartVan integrates advanced GPS tracking technology to enable real-time
+        monitoring of vehicles on a live map.
+      </p>
+
+      <p>
+        Schools and parents can easily view the current location of the vehicle
+        and stay informed about its movement throughout the trip.
+      </p>
+
+      <p>
+        The system can also maintain route history, travel logs, and location
+        records for monitoring and analysis purposes.
+      </p>
+
+      <p>
+        SmartVan supports geo-fencing capabilities that allow notifications to be
+        triggered when a vehicle enters or exits a defined zone.
+      </p>
+
+      <p>
+        Parents can be notified when the van is approaching their home or has
+        reached the school premises.
+      </p>
+
+      <p>
+        This minimizes waiting time, improves coordination, and helps children
+        board and exit the vehicle safely.
+      </p>
+
+      <p>
+        A robust notification engine is one of the core strengths of SmartVan.
+      </p>
+
+      <p>
+        It ensures that parents and schools stay informed at every critical point
+        of the transport journey.
+      </p>
+
+      <p>
+        Notifications may include pickup confirmation, drop-off confirmation,
+        late arrival alerts, route changes, and emergency messages.
+      </p>
+
+      <p>
+        Attendance management is another important feature built into the SmartVan platform.
+      </p>
+
+      <p>
+        Drivers or authorized staff can mark student attendance digitally during
+        pickup and drop-off.
+      </p>
+
+      <p>
+        This allows schools to maintain an accurate record of which students have
+        boarded the vehicle and which have safely reached their destination.
+      </p>
+
+      <p>
+        The platform also supports secure and efficient fee management for school transportation services.
+      </p>
+
+      <p>
+        Parents can pay transport fees online, while schools can monitor dues,
+        payment history, invoices, and billing records.
+      </p>
+
+      <p>
+        This reduces paperwork and simplifies the payment experience for both
+        institutions and families.
+      </p>
+
+      <p>
+        SmartVan is designed to be scalable and adaptable for institutions of
+        different sizes and transportation models.
+      </p>
+
+      <p>
+        Whether a school manages a few vehicles or a large transport network,
+        SmartVan can support its operational needs effectively.
+      </p>
+
+      <p>
+        It can also be extended to support multi-school operations where a single
+        system is used across multiple campuses or organizations.
+      </p>
+
+      <p>
+        Security is at the heart of the SmartVan platform and its overall architecture.
+      </p>
+
+      <p>
+        Sensitive information is protected using modern security standards,
+        controlled access, and authenticated user roles.
+      </p>
+
+      <p>
+        Role-based permissions help ensure that each user only sees and manages
+        the information relevant to their responsibilities.
+      </p>
+
+      <p>
+        SmartVan ensures transparency across all stakeholders involved in the
+        school transportation process.
+      </p>
+
+      <p>
+        Parents, school administrators, transport managers, and drivers all have
+        access to the information they need in a structured and reliable manner.
+      </p>
+
+      <p>
+        This reduces miscommunication, improves accountability, and creates a
+        more coordinated transport environment.
+      </p>
+
+      <p>
+        SmartVan is not just a tracking system; it is a complete transportation
+        management solution for modern educational institutions.
+      </p>
+
+      <p>
+        It combines real-time technology, operational automation, safety-focused
+        tools, and a user-friendly experience into one integrated platform.
+      </p>
+
+      <p>
+        The platform is built using modern technologies to ensure reliability,
+        responsiveness, and high performance across devices.
+      </p>
+
+      <p>
+        It is optimized for both web and mobile usage, making it accessible for
+        parents, school staff, and drivers whenever needed.
+      </p>
+
+      <p>
+        SmartVan aims to reduce operational costs by improving route planning,
+        reducing delays, and minimizing manual processes.
+      </p>
+
+      <p>
+        Optimized transportation workflows help schools save time, fuel, and
+        effort while improving service quality.
+      </p>
+
+      <p>
+        It also enhances the overall user experience by delivering timely
+        communication, accurate tracking, and dependable transportation insights.
+      </p>
+
+      <p>
+        SmartVan supports data-driven decision-making through reports and analytics
+        related to routes, attendance, trips, and transport operations.
+      </p>
+
+      <p>
+        These insights help schools evaluate performance and identify
+        opportunities for improvement in daily transportation activities.
+      </p>
+
+      <p>
+        The interface of SmartVan is designed to be simple, clear, and easy to use.
+      </p>
+
+      <p>
+        Even users with limited technical knowledge can navigate the system and
+        perform their tasks without difficulty.
+      </p>
+
+      <p>
+        SmartVan continues to evolve with changing user needs, school
+        requirements, and technological advancements.
+      </p>
+
+      <p>
+        New features and enhancements can be introduced over time to further
+        improve safety, convenience, and operational control.
+      </p>
+
+      <p>
+        The goal of SmartVan is to create a smarter, safer, and more connected
+        school transportation experience for everyone involved.
+      </p>
+
+      <p>
+        It leverages digital innovation to solve real-world transportation
+        challenges faced by schools and families every day.
+      </p>
+
+      <p>
+        SmartVan empowers parents with visibility and peace of mind.
+      </p>
+
+      <p>
+        It empowers schools with management tools, insights, and control.
+      </p>
+
+      <p>
+        It empowers drivers with guidance, route support, and task clarity.
+      </p>
+
+      <p>
+        Together, these capabilities create a connected ecosystem where safety,
+        efficiency, and trust work hand in hand.
+      </p>
+
+      <p>
+        SmartVan is more than just a software platform; it is a commitment to
+        student safety, service quality, and smarter transportation management.
+      </p>
+
+      <p>
+        It represents a step forward in building stronger, safer, and more
+        efficient education infrastructure through technology.
+      </p>
+
+      <p>
+        By choosing SmartVan, schools invest in reliability, parents gain
+        confidence, and students benefit from safer and more organized travel.
+      </p>
+
+      <p>
+        SmartVan transforms daily transport into a seamless digital experience
+        where every journey is visible, managed, and secure.
+      </p>
+
+      <p>
+        It is the future of school transportation, built to meet today’s needs
+        and ready to grow with tomorrow’s expectations.
+      </p>
+    `,
+  };
+}
 
 }
 

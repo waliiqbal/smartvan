@@ -233,5 +233,16 @@ async getVansBySchoolAdmin(    @Req() req: any,
   
   }
 
+  @UseGuards(AuthGuard('jwt'))
+    @Post('changePassword')
+    async changePassword(
+      @Body('oldPassword') oldPassword: string,
+      @Body('newPassword') newPassword: string,
+      @Req() req: any, // ✅ yahan se user object milega
+    ) {
+      const adminId  = req.user.userId; // ✅ destructuring ab yahan karni hai
+      return this.adminService.changePassword(adminId, oldPassword, newPassword);
+
 }
 
+}

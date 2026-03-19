@@ -21,7 +21,7 @@ export class CreateRouteDto {
 
   @IsOptional()
   @IsString()
-  tripType?: string; // morning / evening / afternoon / night
+  tripType?: string;
 
   @IsOptional()
   @IsObject()

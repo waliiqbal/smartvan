@@ -1213,6 +1213,40 @@ async getVansBySchoolAdmin(adminId: string, query: any) {
   };
 }
 
+async changePassword(
+  adminId: string,
+  oldPassword: string,
+  newPassword: string,
+) {
+  try {
+    // 🔍 Model choose karo userType se
+ 
+    const adminObjectId = new Types.ObjectId(adminId);
+    const admin = await this.databaseService.repositories.AdminModel.findById(adminObjectId);
+    if (!admin) {
+      throw new UnauthorizedException('Admin not found');
+    }
+
+    // 🔑 Old password check karo
+    const isMatch = await bcrypt.compare(oldPassword, admin.password);
+    if (!isMatch) {
+      throw new UnauthorizedException('Old password is incorrect');
+    }
+
+    // ✅ Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // ✍️ Save new password
+    admin.password = hashedPassword;
+    await admin.save();
+
+    return {
+      message: 'Your password has been changed successfully',
+    };
+  } catch (error) {
+    throw new UnauthorizedException(error.message || 'Password change failed');
+  }
+}
 
 
 

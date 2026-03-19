@@ -29,18 +29,19 @@ export class RouteService {
    
     const schoolIdString = school._id.toString();
 
-    //   if (dto.vanId) {
+      if (dto.vanId) {
 
-    // const existingRoute =
-    //   await this.databaseService.repositories.routeModel.findOne({
-    //     vanId: dto.vanId,
-    //     schoolId: schoolIdString
-    //   });
+    const existingRoute =
+      await this.databaseService.repositories.routeModel.findOne({
+        vanId: dto.vanId,
+        schoolId: schoolIdString,
+        tripType: dto.tripType,
+      });
 
-    // if (existingRoute) {
-    //   throw new BadRequestException("This van is already assigned to another route");
-    // }
-
+    if (existingRoute) {
+     throw new BadRequestException(`This van is already assigned for this ${dto.tripType} route`);
+    }
+  }
   
 
 
@@ -258,6 +259,8 @@ async getAssignedTripByDriver(driverId: string) {
       routeId: route._id.toString(),
       createdAt: { $gte: startOfDay, $lte: endOfDay },
     });
+
+    console.log("wali",existingTrip)
 
     const routeInfo = {
       driverName: driver.fullname,

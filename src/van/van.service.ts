@@ -221,7 +221,6 @@ async getVansByAdmin(
 
   const skip = (page - 1) * limit;
 
-
   const pipeline = [
     {
       $match: {
@@ -248,7 +247,7 @@ async getVansByAdmin(
       },
     },
 
-    // 🔹 Lookup Route (vanId string === van._id string)
+    // 🔹 Lookup Routes (ARRAY hi rehne do)
     {
       $lookup: {
         from: 'routes',
@@ -262,17 +261,11 @@ async getVansByAdmin(
             },
           },
         ],
-        as: 'route',
-      },
-    },
-    {
-      $unwind: {
-        path: '$route',
-        preserveNullAndEmptyArrays: true,
+        as: 'routes', // 👈 directly routes array
       },
     },
 
-    // 🔹 Final Response Shape
+    // 🔹 Final Response
     {
       $project: {
         van: {
@@ -298,17 +291,23 @@ async getVansByAdmin(
           phoneNo: { $ifNull: ['$driver.phoneNo', ''] },
         },
 
-        route: {
-          id: {
-            $cond: [
-              { $ifNull: ['$route._id', false] },
-              { $toString: '$route._id' },
-              null,
-            ],
+        // 🔥 Multiple routes array
+        routes: {
+          $map: {
+            input: '$routes',
+            as: 'r',
+            in: {
+              id: {
+                $cond: [
+                  { $ifNull: ['$$r._id', false] },
+                  { $toString: '$$r._id' },
+                  null,
+                ],
+              },
+              title: { $ifNull: ['$$r.title', ''] },
+              tripType: { $ifNull: ['$$r.tripType', ''] },
+            },
           },
-          title: { $ifNull: ['$route.title', ''] },
-          tripType: { $ifNull: ['$route.tripType', ''] },
-          
         },
 
         _id: 0,
@@ -341,7 +340,6 @@ async getVansByAdmin(
     },
   };
 }
-
 
 
 async getVanById(vanId: string) {

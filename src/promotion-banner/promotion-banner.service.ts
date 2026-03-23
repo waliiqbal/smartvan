@@ -23,7 +23,7 @@ export class PromotionBannerService {
     };
   }
 
-  // GET ALL (Admin / Dashboard)
+ 
   async findAll() {
     const banners =
       await this.databaseService.repositories.PromotionBannerModel.find({

@@ -1183,41 +1183,168 @@ async getTripHistoryByParent(
 
 
 
+// async getTripHistoryByDriver(
+//   driverId: string,
+//   page: number,
+//   limit: number,
+//   recent: boolean,
+// ) {
+
+//   const van = await this.databaseService.repositories.VanModel.findOne(
+//     { driverId: new Types.ObjectId(driverId) },
+//     { _id: 1 },
+//   );
+
+ 
+//   if (!van) {
+//     return {
+//       data: recent
+//         ? []
+//         : {
+//             total: 0,
+//             page,
+//             limit,
+//             totalPages: 0,
+//             trips: [],
+//           },
+//     };
+//   }
+
+ 
+//   const startOfDay = new Date();
+//   startOfDay.setHours(0, 0, 0, 0);
+
+//   const endOfDay = new Date();
+//   endOfDay.setHours(23, 59, 59, 999);
+
+
+//   const matchCondition: any = {
+//     vanId: van._id.toString(),
+//     status: 'end',
+//   };
+
+//   if (recent) {
+//     matchCondition.updatedAt = {
+//       $gte: startOfDay,
+//       $lte: endOfDay,
+//     };
+//   } else {
+//     matchCondition.updatedAt = { $lt: startOfDay };
+//   }
+
+
+//   const pipeline: any[] = [
+//     { $match: matchCondition },
+
+   
+//     {
+//       $lookup: {
+//         from: 'routes',
+//         let: { routeId: { $toObjectId: '$routeId' } },
+//         pipeline: [
+//           { $match: { $expr: { $eq: ['$_id', '$$routeId'] } } },
+//         ],
+//         as: 'route',
+//       },
+//     },
+//     { $unwind: { path: '$route', preserveNullAndEmptyArrays: true } },
+
+
+//     {
+//       $lookup: {
+//         from: 'schools',
+//         let: { schoolId: { $toObjectId: '$schoolId' } },
+//         pipeline: [
+//           { $match: { $expr: { $eq: ['$_id', '$$schoolId'] } } },
+//         ],
+//         as: 'school',
+//       },
+//     },
+//     { $unwind: { path: '$school', preserveNullAndEmptyArrays: true } },
+
+   
+//     {
+//       $lookup: {
+//         from: 'vans',
+//         let: { vanId: { $toObjectId: '$vanId' } },
+//         pipeline: [
+//           { $match: { $expr: { $eq: ['$_id', '$$vanId'] } } },
+//         ],
+//         as: 'van',
+//       },
+//     },
+//     { $unwind: { path: '$van', preserveNullAndEmptyArrays: true } },
+
+//     { $sort: { updatedAt: -1 } },
+//   ];
+
+//   // ================= RECENT =================
+//   if (recent) {
+//     const trips = await this.databaseService.repositories.TripModel.aggregate(
+//       pipeline,
+//     );
+
+//     return { data: trips };
+//   }
+
+//   // ================= PAST (Pagination) =================
+//   const totalResult =
+//     await this.databaseService.repositories.TripModel.aggregate([
+//       ...pipeline,
+//       { $count: 'total' },
+//     ]);
+
+//   const total = totalResult[0]?.total || 0;
+
+//   const trips =
+//     await this.databaseService.repositories.TripModel.aggregate([
+//       ...pipeline,
+//       { $skip: (page - 1) * limit },
+//       { $limit: limit },
+//     ]);
+
+//   return {
+//     data: {
+//       total,
+//       page,
+//       limit,
+//       totalPages: Math.ceil(total / limit),
+//       trips,
+//     },
+//   };
+// }
+
 async getTripHistoryByDriver(
   driverId: string,
   page: number,
   limit: number,
   recent: boolean,
 ) {
-
   const van = await this.databaseService.repositories.VanModel.findOne(
     { driverId: new Types.ObjectId(driverId) },
     { _id: 1 },
   );
 
- 
   if (!van) {
     return {
-      data: recent
-        ? []
-        : {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-            trips: [],
-          },
+      data: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        trips: [],
+      },
     };
   }
 
- 
+  // ===== TODAY RANGE =====
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
 
-
+  // ===== MATCH CONDITION =====
   const matchCondition: any = {
     vanId: van._id.toString(),
     status: 'end',
@@ -1232,11 +1359,10 @@ async getTripHistoryByDriver(
     matchCondition.updatedAt = { $lt: startOfDay };
   }
 
-
+  // ===== PIPELINE =====
   const pipeline: any[] = [
     { $match: matchCondition },
 
-   
     {
       $lookup: {
         from: 'routes',
@@ -1248,7 +1374,6 @@ async getTripHistoryByDriver(
       },
     },
     { $unwind: { path: '$route', preserveNullAndEmptyArrays: true } },
-
 
     {
       $lookup: {
@@ -1262,7 +1387,6 @@ async getTripHistoryByDriver(
     },
     { $unwind: { path: '$school', preserveNullAndEmptyArrays: true } },
 
-   
     {
       $lookup: {
         from: 'vans',
@@ -1278,16 +1402,7 @@ async getTripHistoryByDriver(
     { $sort: { updatedAt: -1 } },
   ];
 
-  // ================= RECENT =================
-  if (recent) {
-    const trips = await this.databaseService.repositories.TripModel.aggregate(
-      pipeline,
-    );
-
-    return { data: trips };
-  }
-
-  // ================= PAST (Pagination) =================
+  // ===== COMMON PAGINATION (for BOTH cases) =====
   const totalResult =
     await this.databaseService.repositories.TripModel.aggregate([
       ...pipeline,
@@ -1313,7 +1428,6 @@ async getTripHistoryByDriver(
     },
   };
 }
-
 
 
 

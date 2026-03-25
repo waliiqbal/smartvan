@@ -9,10 +9,10 @@ import { DatabaseService } from './databaseservice'
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    // MongooseModule.forRoot(process.env.MONGODB_URI),
-    MongooseModule.forRoot(
-  'mongodb+srv://waliiqbal2020:QwXfF6vnGHPDih1W@cluster0.gqktgu9.mongodb.net/smartvan?retryWrites=true&w=majority'
-),
+    MongooseModule.forRoot(process.env.MONGODB_URI),
+//     MongooseModule.forRoot(
+//   'mongodb+srv://waliiqbal2020:QwXfF6vnGHPDih1W@cluster0.gqktgu9.mongodb.net/smartvan?retryWrites=true&w=majority'
+// ),
 
     MongooseModule.forFeature([
        { name: 'Parent', schema: schema.UserSchema, collection: 'parents' },

@@ -312,7 +312,7 @@ async getAllRoutesByAdmin(adminId: string, query: any) {
   const driverName =
     typeof query.driverName === "string" ? query.driverName.trim() : "";
 
-  // 🔹 Step 1: Find school by adminId
+  // 🔹 Step 1: Find school
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -323,7 +323,7 @@ async getAllRoutesByAdmin(adminId: string, query: any) {
 
   const schoolIdString = school._id.toString();
 
-  // 🔹 Base pipeline (shared for data + count)
+  // 🔹 Base pipeline (same as before)
   const basePipeline: any[] = [
     { $match: { schoolId: schoolIdString } },
 
@@ -376,7 +376,7 @@ async getAllRoutesByAdmin(adminId: string, query: any) {
     },
   ];
 
-  // 🔹 Apply driverName filter (regex on driverDetails.fullname)
+  // 🔹 Driver name filter
   if (driverName) {
     basePipeline.push({
       $match: {
@@ -388,9 +388,10 @@ async getAllRoutesByAdmin(adminId: string, query: any) {
     });
   }
 
-  // 🔹 Data pipeline (projection + sort + pagination)
+  // 🔥 DATA PIPELINE (UPDATED WITH GROUPING)
   const dataPipeline: any[] = [
     ...basePipeline,
+
     {
       $project: {
         _id: 1,
@@ -406,9 +407,62 @@ async getAllRoutesByAdmin(adminId: string, query: any) {
         "driverDetails._id": 1,
         "driverDetails.fullname": 1,
         createdAt: 1,
-        updatedAt: 1,
       },
     },
+
+    // 🔥 GROUP BY van + driver
+    {
+      $group: {
+        _id: {
+          vanId: "$vanDetails._id",
+          driverId: "$driverDetails._id",
+        },
+
+        vanDetails: { $first: "$vanDetails" },
+        driverDetails: { $first: "$driverDetails" },
+
+        routes: {
+          $push: {
+            id: { $toString: "$_id" },
+            title: "$title",
+            tripType: "$tripType",
+            startTime: "$startTime",
+            startPoint: "$startPoint",
+            endPoint: "$endPoint",
+            tripDays: "$tripDays",
+          },
+        },
+
+        createdAt: { $first: "$createdAt" },
+      },
+    },
+
+    // 🔹 Final shape
+    {
+      $project: {
+        _id: 0,
+
+        van: {
+          id: { $toString: "$vanDetails._id" },
+          carNumber: { $ifNull: ["$vanDetails.carNumber", ""] },
+        },
+
+        driver: {
+          id: {
+            $cond: [
+              { $ifNull: ["$driverDetails._id", false] },
+              { $toString: "$driverDetails._id" },
+              null,
+            ],
+          },
+          fullname: { $ifNull: ["$driverDetails.fullname", ""] },
+        },
+
+        routes: 1,
+        createdAt: 1,
+      },
+    },
+
     { $sort: { createdAt: -1 } },
     { $skip: skip },
     { $limit: limit },
@@ -419,8 +473,21 @@ async getAllRoutesByAdmin(adminId: string, query: any) {
       dataPipeline,
     );
 
-  // 🔹 Count pipeline (same filters, just count)
-  const countPipeline: any[] = [...basePipeline, { $count: "total" }];
+  // 🔥 COUNT PIPELINE (UPDATED)
+  const countPipeline: any[] = [
+    ...basePipeline,
+
+    {
+      $group: {
+        _id: {
+          vanId: "$vanDetails._id",
+          driverId: "$driverDetails._id",
+        },
+      },
+    },
+
+    { $count: "total" },
+  ];
 
   const countResult =
     await this.databaseService.repositories.routeModel.aggregate(
@@ -429,7 +496,6 @@ async getAllRoutesByAdmin(adminId: string, query: any) {
 
   const total = countResult[0]?.total || 0;
 
-  // 🔹 Response
   return {
     message: "Routes fetched successfully",
     data: routes,

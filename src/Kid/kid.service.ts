@@ -630,15 +630,15 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
         throw new BadRequestException('Parent not found');  
         }
 
-        const schoolId = parent.schoolId;
+        // const schoolId = parent.schoolId;
 
-        if (!schoolId) {  
-          throw new BadRequestException('Parent is not associated with any school');
-        }
+        // if (!schoolId) {  
+        //   throw new BadRequestException('Parent is not associated with any school');
+        // }
    
     const kids = await this.databaseService.repositories.KidModel.find(
       
-      { parentId: new Types.ObjectId(parentId), schoolId: schoolId, status: "active" },
+      { parentId: new Types.ObjectId(parentId), status: "active" },
       { VanId: 1, fullname: 1, image: 1, status: 1 }
     );
 

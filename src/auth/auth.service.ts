@@ -114,7 +114,7 @@ async registerUser(registerDto: RegisterDto) {
 
 async loginUser(loginData: any) {
   try {
-    const { userType, email, password, fcmToken, notificationToggle } = loginData;
+    const { userType, email, password, fcmToken} = loginData;
 
     console.log("llllllllllll", loginData)
 
@@ -158,7 +158,7 @@ async loginUser(loginData: any) {
       // Agar same hai to kuch mat karo
     }
 
-    if (notificationToggle === true) {
+    if (user.notificationToggle === true) {
       user.fcmToken = null;
       await user.save();
     }

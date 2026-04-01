@@ -290,7 +290,10 @@ async assignVanToStudents(
   // 4️⃣ Send Notification
   for (const parentId of uniqueParentIds) {
 
-    const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+   const parent = await this.databaseService.repositories.parentModel.findOne({
+  _id: parentId,
+  isDelete: false,
+});
 
     if (!parent || parent.isDelete === true) continue;
 
@@ -364,10 +367,11 @@ async assignVanToDriver(
   const schoolIdString = school._id.toString();
 
   // 2️⃣ Find Driver
-  const driver = await this.databaseService.repositories.driverModel.findOne({
-    _id: driverObjectId,
-    schoolId: schoolIdString,
-  });
+const driver = await this.databaseService.repositories.driverModel.findOne({
+  _id: driverObjectId,
+  schoolId: schoolIdString,
+  isDelete: false,
+});
 
   if (!driver) {
     throw new BadRequestException('Driver not found in this school');
@@ -501,7 +505,12 @@ async verifyStudentsByAdmin(
   // 6️⃣ Send Notification to Each Parent
   for (const parentId of uniqueParentIds) {
 
-    const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+    
+   const parent = await this.databaseService.repositories.parentModel.findOne({
+  _id: parentId,
+  isDelete: false,
+});
+
     if (!parent || parent.isDelete === true) continue;
 
     const title = "Student Verification Update";

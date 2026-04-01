@@ -457,8 +457,11 @@ async updateVanStatusByAdmin(
   // 7️⃣ Send notification to each driver
   for (const driverId of uniqueDriverIds) {
 
-    const driver =
-      await this.databaseService.repositories.driverModel.findById(driverId);
+   const driver = await this.databaseService.repositories.driverModel.findOne({
+  _id: driverId,
+  schoolId: schoolIdString,
+  isDelete: false,
+});
 
       console.log(driver) 
     if (!driver) continue;

@@ -74,6 +74,7 @@ export class alertService {
   const driver = await this.databaseService.repositories.driverModel.findOne({
     _id: van.driverId,
     isDelete: false,
+
   });
 
   if (driver?.fcmToken) {
@@ -567,6 +568,7 @@ async getDriverNotificationsByParent(parentId: string) {
       data: notifications,
     };
   }
+
 
 
 }

@@ -114,7 +114,7 @@ async registerUser(registerDto: RegisterDto) {
 
 async loginUser(loginData: any) {
   try {
-    const { userType, email, password, fcmToken } = loginData;
+    const { userType, email, password, fcmToken, notificationToggle } = loginData;
 
     console.log("llllllllllll", loginData)
 
@@ -158,6 +158,10 @@ async loginUser(loginData: any) {
       // Agar same hai to kuch mat karo
     }
 
+    if (notificationToggle === true) {
+      user.fcmToken = null;
+      await user.save();
+    }
 
     const payload = {
       sub: user._id,
@@ -740,6 +744,50 @@ async addDeleteReason(userId: string, userType: string, deleteReason: string) {
   }
 }
 
+async changeNotificationToggle(
+  userId: string,
+  userType: string,
+  notificationToggle: boolean,
+
+) {
+
+  console.log(userId, userType, notificationToggle);
+  try {
+    // 🔒 optional validation
+    if (!userId || !userType) {
+      throw new BadRequestException('userId and userType are required');
+    }
+
+    const userModel = this.getUserModel(userType);
+
+    const user = await userModel.findOne({
+      _id: userId,
+      isDelete: false,
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // ✅ Toggle update
+    user.notificationToggle = notificationToggle;
+
+    await user.save();
+
+    return {
+      message: `Notification turned ${notificationToggle ? 'ON' : 'OFF'} successfully`,
+      data: {
+        userId: user._id,
+        notificationToggle: user.notificationToggle,
+      },
+    };
+
+  } catch (error) {
+    throw new BadRequestException(
+      error.message || 'Failed to update notification toggle',
+    );
+  }
+}
 
 
  }

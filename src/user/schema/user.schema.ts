@@ -78,6 +78,11 @@ export class User {
   @Prop({ default: null })
   image: string;
 
+    @Prop({ default: true })
+  notificationToggle: boolean;
+
+  
+
 
   @Prop({required: false, default: null })
   fcmToken: string;

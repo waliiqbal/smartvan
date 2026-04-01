@@ -135,6 +135,21 @@ getIssuesForDelete() {
     ]
   };
 }
+
+ @UseGuards(AuthGuard('jwt'))
+@Post('change-notification-toggle')
+async changeNotificationToggle(
+  @Req() req: any,
+  @Body('notificationToggle') notificationToggle: boolean,
+) {
+    const { userId, userType } = req.user; // ✅ destructuring ab yahan karni hai
+  return this.authService.changeNotificationToggle(
+    userId,
+    userType,
+    notificationToggle,
+  );
+}
+
 }
 
 

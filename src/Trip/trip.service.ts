@@ -193,7 +193,11 @@ const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId)
   
 
   if (kid?.parentId) {
-    const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
+   const parent = await this.databaseService.repositories.parentModel.findOne({
+  _id: kid.parentId,
+  isDelete: false,
+
+});
 
     const title = "Kid Picked";
     const message = `${kid.fullname} has been picked by the van driver.`;
@@ -291,7 +295,12 @@ async endTrip(driverId, dto: EndTripDto) {
     const SchoolId = kidDoc?.schoolId;
     if (!kidDoc?.parentId) continue; // agar parentId nahi hai to skip
 
-    const parent = await this.databaseService.repositories.parentModel.findById(kidDoc.parentId);
+   
+  const parent = await this.databaseService.repositories.parentModel.findOne({
+    _id: kidDoc.parentId,
+    isDelete: false,
+  });
+  
     if (!parent) continue;
 
     
@@ -300,7 +309,7 @@ const message = `${kidDoc.fullname} has been safely dropped.`;
 
 
 
-    if (parent.fcmToken) {
+    if (parent?.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
         {
@@ -335,6 +344,8 @@ const message = `${kidDoc.fullname} has been safely dropped.`;
     data: trip,
   };
 }
+
+
 
 
 async getLocationByDriver( dto: getLocationDto) {

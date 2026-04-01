@@ -28,6 +28,8 @@ schoolId: string;
   @Prop({ required: false })
   invoiceStatus: string; // e.g. "Paid"
 
+  
+
   @Prop({ required: false })
   notes: string;
 }

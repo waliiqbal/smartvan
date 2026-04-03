@@ -92,6 +92,9 @@ export class User {
 
     @Prop({default: false })
     isDelete: boolean ;
+
+    @Prop({ default: "inActive" })
+  status: string;
 }
 
 

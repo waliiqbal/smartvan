@@ -115,10 +115,47 @@ console.log(AdminId)
   
   }
 
+  @UseGuards(AuthGuard('jwt')) // JWT Auth Guard use
+  @Get('GetAllDriversByAdmin')
+  async getAllDrivers(
+    @Req() req: any, // JWT decoded user info
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('search') search?: string,
+    @Query('status') status?: 'active' | 'inActive', // optional status filter
+  ) {
+    // JWT token se AdminId nikal lo
+    const adminId = req.user.userId; // assuming AuthGuard ne req.user me user data daala
+
+    if (!adminId) {
+      throw new BadRequestException('Admin not found in token');
+    }
+
+    // page aur limit ko number me convert karo
+    const pageNumber = page ? parseInt(page) : 1;
+    const limitNumber = limit ? parseInt(limit) : 10;
+
+    // service call
+    return this.vanService.getAllDriversByAdmin(
+      adminId,
+      pageNumber,
+      limitNumber,
+      search,
+      status,
+    );
+  }
+
     @Get("getVanById/:id")
   async getVan(@Param("id") id: string) {
     console.log(id)
     return this.vanService.getVanById(id);
+  }
+
+
+      @Get("getDriverById/:id")
+  async getDriverById(@Param("id") id: string) {
+    console.log(id)
+    return this.vanService.getDriverById(id);
   }
 
    @UseGuards(AuthGuard('jwt'))
@@ -229,7 +266,54 @@ async deleteVanByAdmin(@Req() req: any, @Body('vanId') vanId: string) {
 async getVansBySchoolId(@Param('schoolId') schoolId: string) {
   return this.vanService.getVansBySchool(schoolId);
 }
+@UseGuards(AuthGuard('jwt'))
+@Post('changeDriverStatus')
+async changeDriverStatus(
+  @Req() req: any,
+  @Body() body: { driverIds: string[]; status: string },
+) {
+  const adminId = req.user.userId;
+  const { driverIds, status } = body;
+
+  return this.vanService.updateDriverStatusByAdmin(
+    driverIds,
+    adminId,
+    status,
+  );
 }
 
+
+
+  // 🔒 JWT-protected endpoint
+  @UseGuards(AuthGuard('jwt'))
+  @Post('assignSchool')
+  async assignSchoolToDriver(
+    @Req() req: any,g,
+    @Body('schoolId') schoolId: string,
+  ) {
+    // req.user me JWT se authenticated user info aayega (admin)
+    const driverId = req.user.userId;
+
+    // Service call
+    return this.vanService.assignSchoolToDriver(driverId, schoolId,);
+  }
+
+
+@UseGuards(AuthGuard('jwt'))
+@Post('removeDriversFromScool')
+async removeDriversFromScool(
+  @Req() req: any,
+  @Body() body: { driverIds: string[]; status: string },
+) {
+  const adminId = req.user.userId;
+  const { driverIds } = body;
+
+  return this.vanService.removeDriversFromSchool(
+    driverIds,
+    adminId,
+  );
+}
+
+}
 
 

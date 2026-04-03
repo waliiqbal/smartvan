@@ -882,11 +882,307 @@ async getVansBySchool(schoolId: string) {
   };
 }
 
+async updateDriverStatusByAdmin(
+  driverIds: string[],
+  adminId: string,
+  status: string,
+) {
+  const adminObjectId = new Types.ObjectId(adminId);
+  console.log("API HIT HO GAYI");
 
+  // 1️⃣ Find school linked with admin
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
 
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
 
+  const schoolIdString = school._id.toString();
 
+  // 2️⃣ Validate status
+  if (status !== 'active' && status !== 'inActive') {
+    throw new BadRequestException('Invalid status value');
+  }
 
+  // 3️⃣ Validate driverIds
+  if (!driverIds || driverIds.length === 0) {
+    throw new BadRequestException('driverIds array is required');
+  }
+
+  const driverObjectIds = driverIds.map(id => new Types.ObjectId(id));
+  console.log(driverObjectIds);
+
+  // 4️⃣ Update drivers status
+  const result =
+    await this.databaseService.repositories.driverModel.updateMany(
+      {
+        _id: { $in: driverObjectIds },
+        schoolId: schoolIdString,
+        isDelete: false,
+      },
+      {
+        $set: { status },
+      },
+    );
+
+  console.log(result);
+
+  // 5️⃣ Fetch updated drivers
+  const drivers =
+    await this.databaseService.repositories.driverModel.find(
+      {
+        _id: { $in: driverObjectIds },
+        schoolId: schoolIdString,
+        isDelete: false,
+      },
+      {
+        fullname: 1,
+        fcmToken: 1,
+        status: 1,
+      },
+    );
+
+  console.log(drivers);
+
+  // 6️⃣ Send notification to each driver
+  for (const driver of drivers) {
+    const title = 'Account Status Update';
+    const message =
+      status === 'active'
+        ? `Your account has been activated by the school.`
+        : `Your account has been marked inactive by the school.`;
+
+    if (driver.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        driver.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+        },
+      );
+    }
+  }
+
+  return { message: 'Driver status updated successfully', updatedCount: result.modifiedCount };
+}
+
+async assignSchoolToDriver(
+  driverId: string,
+  schoolId: string,
+) {
+  // 1️⃣ Validate inputs
+  if (!driverId) {
+    throw new BadRequestException('driverId is required');
+  }
+
+  if (!schoolId) {
+    throw new BadRequestException('schoolId is required');
+  }
+
+  const driverObjectId = new Types.ObjectId(driverId);
+
+  // 2️⃣ Find driver by ID
+  const driver = await this.databaseService.repositories.driverModel.findOne({
+    _id: driverObjectId,
+    isDelete: false,
+  });
+
+  if (!driver) {
+    throw new NotFoundException('Driver not found');
+  }
+
+  // 3️⃣ Assign school
+  driver.schoolId = schoolId;
+
+  // 4️⃣ Save driver
+  const updatedDriver = await driver.save();
+
+  // 5️⃣ Return proper response
+  return {
+    message: 'Driver has been successfully assigned to the school',
+    data: updatedDriver,
+  };
+}
+
+async removeDriversFromSchool(
+  driverIds: string[],
+  adminId: string,
+) {
+  const adminObjectId = new Types.ObjectId(adminId);
+  console.log("API HIT HO GAYI - Remove Drivers");
+
+  // 1️⃣ Find school linked with admin
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  const schoolIdString = school._id.toString();
+
+  // 2️⃣ Validate driverIds
+  if (!driverIds || driverIds.length === 0) {
+    throw new BadRequestException('driverIds array is required');
+  }
+
+  const driverObjectIds = driverIds.map(id => new Types.ObjectId(id));
+  console.log(driverObjectIds);
+
+  // 3️⃣ Update drivers - remove school (set schoolId to null)
+  const result = await this.databaseService.repositories.driverModel.updateMany(
+    {
+      _id: { $in: driverObjectIds },
+      schoolId: schoolIdString,
+      isDelete: false,
+    },
+    {
+      $set: { schoolId: null },
+    },
+  );
+
+  console.log(result);
+
+  // 4️⃣ Fetch updated drivers
+  const drivers = await this.databaseService.repositories.driverModel.find(
+    {
+      _id: { $in: driverObjectIds },
+      isDelete: false,
+    },
+    {
+      fullname: 1,
+      fcmToken: 1,
+    },
+  );
+
+  console.log(drivers);
+
+  // 5️⃣ Send push notification to each driver
+  for (const driver of drivers) {
+    const title = 'Removed from School';
+    const message = `You have been removed from the school by the admin.`;
+
+    if (driver.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        driver.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+        },
+      );
+    }
+  }
+
+  return {
+    message: 'Drivers removed from school successfully',
+    removedCount: result.modifiedCount,
+  };
+}
+
+async getAllDriversByAdmin(
+  adminId: string,
+  page = 1,
+  limit = 10,
+  search?: string,
+  status?: 'active' | 'inActive', // optional status filter
+) {
+  const adminObjectId = new Types.ObjectId(adminId);
+
+  // 1️⃣ Find school linked with admin
+  const school = await this.databaseService.repositories.SchoolModel.findOne({
+    admin: adminObjectId,
+  });
+
+  if (!school) {
+    throw new UnauthorizedException('School not found');
+  }
+
+  const skip = (page - 1) * limit;
+
+  // 2️⃣ Build query
+  const query: any = {
+    schoolId: school._id.toString(),
+    isDelete: false,
+  };
+
+  if (search) {
+    query.fullname = { $regex: search, $options: 'i' };
+  }
+
+  if (status) {
+    query.status = status;
+  }
+
+  // 3️⃣ Fetch drivers with pagination
+  const drivers = await this.databaseService.repositories.driverModel
+    .find(query)
+    .skip(skip)
+    .limit(limit)
+    .select('fullname email phoneNo status fcmToken image schoolId');
+
+  // 4️⃣ Total count
+  const total = await this.databaseService.repositories.driverModel.countDocuments(
+    query,
+  );
+
+  // 5️⃣ Return response
+  return {
+    message: 'Drivers fetched successfully',
+    data: drivers,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+async getDriverById(driverId: string) {
+  if (!driverId) {
+    throw new BadRequestException('Driver ID is required');
+  }
+
+  const driverObjectId = new Types.ObjectId(driverId);
+
+  // 1️⃣ Find driver by ID
+  const driver = await this.databaseService.repositories.driverModel.findOne({
+    _id: driverObjectId,
+    isDelete: false,
+  });
+
+  if (!driver) {
+    throw new NotFoundException('Driver not found');
+  }
+
+  let schoolName = null;
+
+  // 2️⃣ Fetch school name if driver has schoolId
+  if (driver.schoolId) {
+    const school = await this.databaseService.repositories.SchoolModel.findOne({
+      _id: new Types.ObjectId(driver.schoolId),
+    });
+
+    if (school) {
+      schoolName = school.schoolName; // assuming School model has `name` field
+    }
+  }
+
+  // 3️⃣ Return response with driver data + school name
+  return {
+    message: 'Driver fetched successfully',
+    data: {
+      ...driver.toObject(),
+      schoolName,
+    },
+  };
+}
 
 
 }

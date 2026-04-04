@@ -158,7 +158,7 @@ async loginUser(loginData: any) {
       // Agar same hai to kuch mat karo
     }
 
-    if (user.notificationToggle === true) {
+    if (user.notificationToggle === false) {
       user.fcmToken = null;
       await user.save();
     }
@@ -310,28 +310,54 @@ async getProfile(userId: string, userType: string) {
       throw new UnauthorizedException('Invalid user credentials');
     }
 
-    // ✅ 1. Select correct model based on userType
-    const userModel = this.getUserModel(userType); // 👈 e.g., parentModel or driverModel
+    // ✅ 1. Select correct model
+    const userModel = this.getUserModel(userType);
 
-    // ✅ 2. Find user in DB
-    const user = await userModel.findById(userId).select('-password -otp -otpExpiresAt');
+    // ✅ 2. Find user
+    const user = await userModel
+      .findById(userId)
+      .select('-password -otp -otpExpiresAt');
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-      if (user.isDelete == true) {
-      throw new UnauthorizedException('Your account is deleted, you cannot view your profile');
+    if (user.isDelete == true) {
+      throw new UnauthorizedException(
+        'Your account is deleted, you cannot view your profile',
+      );
     }
 
-    // ✅ 3. Wrap response in data
+    let schoolName = null; // 👈 default null
+
+    // ✅ 3. Only for driver → fetch school
+    if (userType === 'driver') {
+      if (user.schoolId) {
+        const school = await this.databaseService.repositories.SchoolModel.findById(user.schoolId);
+
+        if (school) {
+          schoolName = school.schoolName; // 👈 field name check kar lena
+        }
+      }
+    }
+
+    // ✅ 4. Response
     return {
       message: 'User profile fetched successfully',
-      data: user,
+      data: {
+        ...user.toObject(), // 👈 mongoose doc → plain object
+        schoolName,         // 👈 add extra field
+      },
     };
   } catch (error) {
-    throw new UnauthorizedException(error.message || 'Failed to fetch profile');
+    throw new UnauthorizedException(
+      error.message || 'Failed to fetch profile',
+    );
   }
+
+
+
+
 }
 
 

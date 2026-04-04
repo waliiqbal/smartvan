@@ -288,7 +288,7 @@ async changeDriverStatus(
   @UseGuards(AuthGuard('jwt'))
   @Post('assignSchool')
   async assignSchoolToDriver(
-    @Req() req: any,g,
+    @Req() req: any,
     @Body('schoolId') schoolId: string,
   ) {
     // req.user me JWT se authenticated user info aayega (admin)

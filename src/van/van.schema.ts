@@ -53,6 +53,14 @@ export class Van {
 
  @Prop({required: false, default: 'inActive' })
 status: string;
-}
+
+@Prop({ type: Boolean, default: false })
+ownVan: boolean;
+
+};
+
+
+
+
 
 export const VanSchema = SchemaFactory.createForClass(Van);

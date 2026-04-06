@@ -81,8 +81,6 @@ export class User {
     @Prop({ default: true })
   notificationToggle: boolean;
 
-  
-
 
   @Prop({required: false, default: null })
   fcmToken: string;

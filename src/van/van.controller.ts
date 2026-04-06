@@ -90,29 +90,37 @@ async editVanByAdmin(
 console.log(AdminId)
   return this.vanService.editVanByAdmin(EditVanByAdminDto, AdminId);
 }
- @UseGuards(AuthGuard('jwt')) // JWT Auth Guard use
-  @Get("GetVansByAdmin")
-  async getstudent(
-    @Req() req: any, // request object, JWT decoded user info milega
-    @Query('page') page: string,
-    @Query('limit') limit: string,
+  @UseGuards(AuthGuard('jwt'))
+  @Get('GetVansByAdmin')
+  async GetVansByAdmin(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('vanOwn') vanOwn?: string, // string aayega, hum convert karenge
   ) {
-    // JWT token se AdminId nikal lo
-    const adminId = req.user.userId; // assuming AuthGuard ne req.user me user data daala
+    const adminId = req.user?.userId;
 
     if (!adminId) {
-      throw new BadRequestException ('Admin not found in token');
+      throw new BadRequestException('Admin not found in token');
     }
 
-    // page aur limit ko number me convert karo
+    // 🔹 Pagination
     const pageNumber = page ? parseInt(page) : 1;
     const limitNumber = limit ? parseInt(limit) : 10;
 
-    // service call
-    return this.vanService.getVansByAdmin(adminId, pageNumber, limitNumber, search);
+    // 🔹 vanOwn boolean conversion (optional)
+    const vanOwnBool =
+      vanOwn !== undefined ? vanOwn === 'true' : undefined;
 
-  
+    // 🔹 Service call
+    return this.vanService.getVansByAdmin(
+      adminId,
+      pageNumber,
+      limitNumber,
+      search,
+      vanOwnBool, // ✅ boolean pass ho raha
+    );
   }
 
   @UseGuards(AuthGuard('jwt')) // JWT Auth Guard use

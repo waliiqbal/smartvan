@@ -247,7 +247,28 @@ async assignVanToStudents(
     throw new BadRequestException('Van is not active');
   }
 
+ 
+
   console.log(van)
+
+  const driverId = van.driverId;
+  if (!driverId) {
+    throw new BadRequestException('Driver not found for this van'); 
+  }
+
+  const driver = await this.databaseService.repositories.driverModel.findOne({
+    _id: driverId,  
+    schoolId: schoolIdString,
+    isDelete: false,
+  });
+
+  if (!driver) {
+    throw new BadRequestException('Driver not found for this van'); 
+  }
+
+  if (driver.status !== "active") {   
+    throw new BadRequestException('Driver is not active');
+  }
 
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
   console.log(kidObjectIds)
@@ -372,6 +393,10 @@ const driver = await this.databaseService.repositories.driverModel.findOne({
   schoolId: schoolIdString,
   isDelete: false,
 });
+
+  if (driver.status !== "active") {
+    throw new BadRequestException('Driver is not active');
+  }
 
   if (!driver) {
     throw new BadRequestException('Driver not found in this school');

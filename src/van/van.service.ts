@@ -64,6 +64,8 @@ async addVan(createVanDto: CreateVanDto, userId: string, userType: string) {
   const newVan = new this.databaseService.repositories.VanModel({
     ...vanData,
     driverId: driver._id,
+    ownVan: true,
+
   });
 
   const savedVan = await newVan.save();
@@ -206,10 +208,11 @@ async getVansByAdmin(
   page = 1,
   limit = 10,
   search?: string,
+  vanOwn?: boolean, // 👈 new filter
 ) {
   const adminObjectId = new Types.ObjectId(AdminId);
 
-  // 1. Find school
+  // 🔹 1. Find school
   const school =
     await this.databaseService.repositories.SchoolModel.findOne({
       admin: adminObjectId,
@@ -221,17 +224,28 @@ async getVansByAdmin(
 
   const skip = (page - 1) * limit;
 
+  // 🔹 2. Aggregation pipeline
   const pipeline = [
     {
       $match: {
         schoolId: school._id.toString(),
+
+        // ✅ search filter
         ...(search
           ? { carNumber: { $regex: search, $options: 'i' } }
           : {}),
+
+        // ✅ vanOwn filter
+        ...(vanOwn !== undefined
+          ? { ownVan: vanOwn }
+          : {}),
+
+        // ✅ only active vans (optional but recommended)
+        status: 'active',
       },
     },
 
-    // 🔹 Lookup Driver
+    // 🔹 Driver lookup
     {
       $lookup: {
         from: 'drivers',
@@ -247,7 +261,7 @@ async getVansByAdmin(
       },
     },
 
-    // 🔹 Lookup Routes (ARRAY hi rehne do)
+    // 🔹 Routes lookup
     {
       $lookup: {
         from: 'routes',
@@ -261,11 +275,11 @@ async getVansByAdmin(
             },
           },
         ],
-        as: 'routes', // 👈 directly routes array
+        as: 'routes',
       },
     },
 
-    // 🔹 Final Response
+    // 🔹 Final response format
     {
       $project: {
         van: {
@@ -276,6 +290,7 @@ async getVansByAdmin(
           vehicleType: { $ifNull: ['$vehicleType', ''] },
           carNumber: { $ifNull: ['$carNumber', ''] },
           status: { $ifNull: ['$status', ''] },
+          ownVan: { $ifNull: ['$ownVan', false] },
         },
 
         driver: {
@@ -291,7 +306,6 @@ async getVansByAdmin(
           phoneNo: { $ifNull: ['$driver.phoneNo', ''] },
         },
 
-        // 🔥 Multiple routes array
         routes: {
           $map: {
             input: '$routes',
@@ -321,12 +335,20 @@ async getVansByAdmin(
   const vans =
     await this.databaseService.repositories.VanModel.aggregate(pipeline);
 
+  // 🔹 Total count (IMPORTANT: same filters)
   const total =
     await this.databaseService.repositories.VanModel.countDocuments({
       schoolId: school._id.toString(),
+
       ...(search
         ? { carNumber: { $regex: search, $options: 'i' } }
         : {}),
+
+      ...(vanOwn !== undefined
+        ? { ownVan: vanOwn }
+        : {}),
+
+      status: 'active',
     });
 
   return {
@@ -340,7 +362,6 @@ async getVansByAdmin(
     },
   };
 }
-
 
 async getVanById(vanId: string) {
   // 1. Van find karo
@@ -533,6 +554,19 @@ async removeDriverFromVan(vanId: string , adminId: string) {
 
 
   const vanObjectId = new Types.ObjectId(vanId);
+
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    _id: vanObjectId, 
+    schoolId: school._id.toString(),  
+  });
+
+  if (!van) {
+    throw new BadRequestException('Van not found');
+  }
+
+  if (van.ownVan === true) {
+    throw new BadRequestException('Cannot remove driver from own van');
+  }
 
   // 1. Update van → driverId null
   const result = await this.databaseService.repositories.VanModel.updateOne(
@@ -817,9 +851,20 @@ async deleteVan(driverId: string) {
     throw new BadRequestException('Van not found for this driver');
   }
 
+  if (van.ownVan === true) {
+     van.driverId = null;
+      van.status = 'inActive';
+      van.schoolId = null;
+      await van.save();
+
+       return {
+    message: 'Van removed successfully',
+  };
+
+}
+
   // Step 2: driverId ko null kar do
   van.driverId = null;
-  van.status = 'inactive'; 
 
   // Step 3: Save updated document
   await van.save();
@@ -853,6 +898,9 @@ async deleteVanByAdmin(adminId: string, vanId: string) {
     throw new BadRequestException('Van not found');
   }
 
+  if (van.ownVan === true) {
+     
+
   // Step 2: driverId ko null kar do
   van.schoolId = null;
   van.status = 'inActive'; 
@@ -864,11 +912,28 @@ async deleteVanByAdmin(adminId: string, vanId: string) {
   return {
     message: 'Van deleted from School successfully',
   };
+
+}
+ van.status = 'inActive';
+  van.schoolId = null;
+  van.driverId = null;
+
+  await van.save();
+
+  return {
+    message: 'Van deleted from School successfully',
+  };
+
+
+
 }
 
 async getVansBySchool(schoolId: string) {
   // find all vans where schoolId matches
-  const vans = await this.databaseService.repositories.VanModel.find({ schoolId });
+ const vans = await this.databaseService.repositories.VanModel.find({
+    schoolId,
+    status: 'active'   // 👈 ye add karo
+  });
 
   // if no vans found
   if (!vans || vans.length === 0) {
@@ -946,6 +1011,7 @@ async updateDriverStatusByAdmin(
 
   console.log(drivers);
 
+ 
   // 6️⃣ Send notification to each driver
   for (const driver of drivers) {
     const title = 'Account Status Update';
@@ -954,6 +1020,16 @@ async updateDriverStatusByAdmin(
         ? `Your account has been activated by the school.`
         : `Your account has been marked inactive by the school.`;
 
+
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    driverId: driver._id,
+  });
+
+ 
+  if (van && van.ownVan === true) {
+    van.status = status;
+    await van.save();
+  }
     if (driver.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,
@@ -1067,6 +1143,19 @@ async removeDriversFromSchool(
     const title = 'Removed from School';
     const message = `You have been removed from the school by the admin.`;
 
+    const van = await this.databaseService.repositories.VanModel.findOne({
+    driverId: driver._id,
+  });
+
+
+    if (van && van.ownVan === true) {
+      // 👉 Sirf school se unlink
+      van.schoolId = null;
+      van.status = 'inActive'; // van ko inActive kar do jab driver school se remove ho
+      await van.save();
+    } 
+
+   
     if (driver.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,

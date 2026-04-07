@@ -774,12 +774,11 @@ async changeNotificationToggle(
   userId: string,
   userType: string,
   notificationToggle: boolean,
-
 ) {
 
   console.log(userId, userType, notificationToggle);
+
   try {
-    // 🔒 optional validation
     if (!userId || !userType) {
       throw new BadRequestException('userId and userType are required');
     }
@@ -798,6 +797,11 @@ async changeNotificationToggle(
     // ✅ Toggle update
     user.notificationToggle = notificationToggle;
 
+    // 🔥 MAIN LOGIC
+    if (notificationToggle === false) {
+      user.fcmToken = null; // ❌ remove token
+    }
+
     await user.save();
 
     return {
@@ -809,11 +813,10 @@ async changeNotificationToggle(
     };
 
   } catch (error) {
-    throw new BadRequestException(
-      error.message || 'Failed to update notification toggle',
-    );
+    throw error;
   }
 }
+
 
 
  }

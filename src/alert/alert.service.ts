@@ -482,55 +482,115 @@ async getAlertsForParent(parentId: string) {
   };
 }
 
+// async getAlertsForDriver(driverId: string) {
+
+//   const driverObjectId = new Types.ObjectId(driverId);
+//   console.log(driverObjectId)
+
+//   const driver = await this.databaseService.repositories.driverModel.findById(
+//    driverObjectId
+//   );
+
+//   const van = await this.databaseService.repositories.VanModel.findOne({
+//     driverId: driverObjectId,
+//   });
+
+//   const vanId = van._id;
+
+
+//   if (!driver) {
+//     return {
+//       message: "Driver not found",
+//       data: { notifications: [] }
+//     };
+//   }
+
+//     if (driver.isDelete === true) { 
+//     throw new BadRequestException('Driver account is deleted');
+//   }
+
+//   const driverIdString = driverObjectId.toString();
+
+//   console.log("Driver ID String:", driverIdString);
+
+
+  
+// const notifications =
+//   await this.databaseService.repositories.notificationModel.find({
+//     $and: [
+//       {
+//         $or: [
+//           { recipientType: "ALL_DRIVERS" },
+//           { recipientType: "SPECIFIC_VAN", VanId: vanId },
+//           { VanId: vanId },
+//           { driverId: driverObjectId.toString() } 
+//         ]
+//       },
+//       { type: { $ne: "driver" } },
+//       { infoType2: { $ne: "forParents" } }
+//     ]
+//   })
+//     .sort({ date: -1 });
+
+//   return {
+//     message: notifications.length
+//       ? "Driver alerts fetched successfully"
+//       : "No alerts found for drivers",
+//     data: { notifications },
+//   };
+// }
+
 async getAlertsForDriver(driverId: string) {
-
   const driverObjectId = new Types.ObjectId(driverId);
-  console.log(driverObjectId)
 
+  // 🔹 Driver fetch
   const driver = await this.databaseService.repositories.driverModel.findById(
-   driverObjectId
+    driverObjectId
   );
-
-  const van = await this.databaseService.repositories.VanModel.findOne({
-    driverId: driverObjectId,
-  });
-
-  if (!van) {
-    return {
-      message: "Driver not found",
-      data: { notifications: [] }
-    };
-  }
-
-  const vanId = van._id;
-
 
   if (!driver) {
     return {
       message: "Driver not found",
-      data: { notifications: [] }
+      data: { notifications: [] },
     };
   }
 
-    if (driver.isDelete === true) { 
+  if (driver.isDelete === true) {
     throw new BadRequestException('Driver account is deleted');
   }
-  
-const notifications =
-  await this.databaseService.repositories.notificationModel.find({
-    $and: [
-      {
-        $or: [
-          { recipientType: "ALL_DRIVERS" },
-          { recipientType: "SPECIFIC_VAN", VanId: vanId },
-          { VanId: vanId } // sirf van wali notifications
-        ]
-      },
-      { type: { $ne: "driver" } },
-      { infoType2: { $ne: "forParents" } }
-    ]
-  })
-    .sort({ date: -1 });
+
+  // 🔹 Van fetch (optional ho sakta hai)
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    driverId: driverObjectId,
+  });
+
+  const vanId = van?._id; // ✅ safe
+
+  // 🔹 Dynamic OR conditions
+  const orConditions: any[] = [
+    { recipientType: "ALL_DRIVERS" },
+    { driverId: driverObjectId.toString() },
+  ];
+
+  // ✅ sirf tab add karo jab vanId exist kare
+  if (vanId) {
+    orConditions.push(
+      { recipientType: "SPECIFIC_VAN", VanId: vanId },
+      { VanId: vanId }
+    );
+  }
+
+  // 🔹 Final query
+  const notifications =
+    await this.databaseService.repositories.notificationModel
+      .find({
+        $and: [
+          { $or: orConditions },
+          { type: { $ne: "driver" } },
+          { infoType2: { $ne: "forParents" } },
+        ],
+      })
+      .sort({ date: -1 });
 
   return {
     message: notifications.length
@@ -539,7 +599,6 @@ const notifications =
     data: { notifications },
   };
 }
-
 async getDriverNotificationsByParent(parentId: string) {
 
    const parentObjectId = new Types.ObjectId(parentId);

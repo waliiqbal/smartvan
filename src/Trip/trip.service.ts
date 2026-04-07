@@ -241,29 +241,133 @@ const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId)
   };
 }
 
+// async endTrip(driverId, dto: EndTripDto) {
+//   const { tripId, lat, long, time } = dto;
+//   const driverObjectId = new Types.ObjectId(driverId);
+
+
+//   const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+//   if (!driver) throw new UnauthorizedException('Driver not found');
+
+
+//   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+//   if (!van) throw new BadRequestException('Van not assigned to this driver');
+
+//   const schoolId = van.schoolId;
+  
+//   if (!schoolId) {  
+//     throw new BadRequestException('Van is not associated with any school');
+//   }
+  
+//    if (driver.schoolId !== van.schoolId) {
+//     throw new BadRequestException('Driver and Van school do not match');
+//   }
+
+
+//   const trip = await this.databaseService.repositories.TripModel.findById(tripId);
+//   if (!trip) throw new NotFoundException('Trip not found');
+
+//   if (trip.vanId !== van._id.toString()) {
+//     throw new BadRequestException("Van does not belong to this trip");
+//   }
+
+//   trip.kids = trip.kids.map(kid => ({
+//     ...kid,
+//     status: 'dropped',
+//     time: time ? new Date(time) : new Date(),
+//     lat,
+//     long,
+//   }));
+
+//   trip.status = 'end';
+//   trip.tripEnd = {
+//     endTime: time ? new Date(time) : new Date(),
+//     lat,
+//     long,
+//   };
+
+//   await trip.save();
+
+
+//   for (const kidEntry of trip.kids) {
+
+//     const kidDoc = await this.databaseService.repositories.KidModel.findById(kidEntry.kidId);
+//     const SchoolId = kidDoc?.schoolId;
+//     if (!kidDoc?.parentId) continue; // agar parentId nahi hai to skip
+
+   
+//   const parent = await this.databaseService.repositories.parentModel.findOne({
+//     _id: kidDoc.parentId,
+//     isDelete: false,
+//   });
+  
+//     if (!parent) continue;
+
+    
+// const title = "Student Dropped";
+// const message = `${kidDoc.fullname} has been safely dropped.`;
+
+
+
+//     if (parent?.fcmToken) {
+//       await this.firebaseAdminService.sendToDevice(
+//         parent.fcmToken,
+//         {
+//           notification: { title, body: message },
+//           data: {
+//             kidId: kidDoc._id.toString(),
+//             status: 'dropped',
+//             tripId: trip._id.toString(),
+//             time: new Date().toISOString(),
+//           },
+//         }
+//       );
+//     }
+
+
+//     await this.databaseService.repositories.notificationModel.create({
+//       type: "driver",
+//       infoType: "Information",
+//       parentId: kidDoc.parentId.toString(),
+//       schoolId: SchoolId,
+//       VanId: van._id.toString(),
+//       title: title,
+//       message: message,
+//       actionType: "DROPPED",
+//       status: "sent",
+//       date: new Date(),
+//     });
+//   }
+
+//   return {
+//     message: "Trip ended, notifications sent & saved",
+//     data: trip,
+//   };
+// }
+
 async endTrip(driverId, dto: EndTripDto) {
   const { tripId, lat, long, time } = dto;
   const driverObjectId = new Types.ObjectId(driverId);
 
-
+  // 1️⃣ Driver check
   const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
   if (!driver) throw new UnauthorizedException('Driver not found');
 
-
+  // 2️⃣ Van check
   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
   if (!van) throw new BadRequestException('Van not assigned to this driver');
 
   const schoolId = van.schoolId;
-  
-  if (!schoolId) {  
+
+  if (!schoolId) {
     throw new BadRequestException('Van is not associated with any school');
   }
-  
-   if (driver.schoolId !== van.schoolId) {
+
+  if (driver.schoolId !== van.schoolId) {
     throw new BadRequestException('Driver and Van school do not match');
   }
 
-
+  // 3️⃣ Trip check
   const trip = await this.databaseService.repositories.TripModel.findById(tripId);
   if (!trip) throw new NotFoundException('Trip not found');
 
@@ -271,6 +375,7 @@ async endTrip(driverId, dto: EndTripDto) {
     throw new BadRequestException("Van does not belong to this trip");
   }
 
+  // 4️⃣ Update trip kids status
   trip.kids = trip.kids.map(kid => ({
     ...kid,
     status: 'dropped',
@@ -288,48 +393,69 @@ async endTrip(driverId, dto: EndTripDto) {
 
   await trip.save();
 
+  // ===============================
+  // 🔥 NEW LOGIC STARTS HERE
+  // ===============================
 
-  for (const kidEntry of trip.kids) {
+  // 5️⃣ Get all kids data
+  const kidIds = trip.kids.map(k => new Types.ObjectId(k.kidId));
 
-    const kidDoc = await this.databaseService.repositories.KidModel.findById(kidEntry.kidId);
-    const SchoolId = kidDoc?.schoolId;
-    if (!kidDoc?.parentId) continue; // agar parentId nahi hai to skip
+  const kids = await this.databaseService.repositories.KidModel.find(
+    { _id: { $in: kidIds } },
+    { parentId: 1, fullname: 1, schoolId: 1 }
+  );
 
-   
-  const parent = await this.databaseService.repositories.parentModel.findOne({
-    _id: kidDoc.parentId,
-    isDelete: false,
-  });
-  
+  // 6️⃣ Unique parents
+  const uniqueParentIds = [
+    ...new Set(
+      kids
+        .filter(k => k.parentId)
+        .map(k => k.parentId.toString())
+    ),
+  ];
+
+  // 7️⃣ Send notification parent-wise
+  for (const parentId of uniqueParentIds) {
+
+    const parent = await this.databaseService.repositories.parentModel.findOne({
+      _id: parentId,
+      isDelete: false,
+    });
+
     if (!parent) continue;
 
-    
-const title = "Student Dropped";
-const message = `${kidDoc.fullname} has been safely dropped.`;
+    // 👉 is parent ke kids
+    const kidsOfParent = kids.filter(
+      k => k.parentId && k.parentId.toString() === parentId
+    );
 
+    const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
 
+    const title = "Student Dropped";
+    const message = `Your child ${kidNames} has been safely dropped.`;
 
-    if (parent?.fcmToken) {
+    // 🔔 Push Notification
+    if (parent.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
         {
           notification: { title, body: message },
-          data: {
-            kidId: kidDoc._id.toString(),
-            status: 'dropped',
-            tripId: trip._id.toString(),
-            time: new Date().toISOString(),
-          },
+      data: {
+       kidIds: JSON.stringify(kidsOfParent.map(k => k._id.toString())), // ✅ string
+       status: 'dropped',
+        tripId: trip._id.toString(),
+         time: new Date().toISOString(),
+}
         }
       );
     }
 
-
+    // 🗄️ Save Notification
     await this.databaseService.repositories.notificationModel.create({
       type: "driver",
       infoType: "Information",
-      parentId: kidDoc.parentId.toString(),
-      schoolId: SchoolId,
+      parentId: parentId,
+      schoolId: kidsOfParent[0]?.schoolId,
       VanId: van._id.toString(),
       title: title,
       message: message,
@@ -339,12 +465,15 @@ const message = `${kidDoc.fullname} has been safely dropped.`;
     });
   }
 
+  // ===============================
+  // 🔥 END
+  // ===============================
+
   return {
     message: "Trip ended, notifications sent & saved",
     data: trip,
   };
 }
-
 
 
 

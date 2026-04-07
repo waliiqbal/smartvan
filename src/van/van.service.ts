@@ -239,9 +239,6 @@ async getVansByAdmin(
         ...(vanOwn !== undefined
           ? { ownVan: vanOwn }
           : {}),
-
-        // ✅ only active vans (optional but recommended)
-        status: 'active',
       },
     },
 
@@ -348,7 +345,6 @@ async getVansByAdmin(
         ? { ownVan: vanOwn }
         : {}),
 
-      status: 'active',
     });
 
   return {
@@ -1041,7 +1037,21 @@ async updateDriverStatusByAdmin(
         },
       );
     }
+
+        // 💾 Save notification in DB
+    await this.databaseService.repositories.notificationModel.create({
+      type: 'admin',
+      schoolId: schoolIdString,
+      driverId: driver._id.toString(),
+      infoType: "Information",
+      title,
+      message,
+      actionType: 'VAN_STATUS_UPDATED',
+      status: 'sent',
+      date: new Date(),
+    });
   }
+  
 
   return { message: 'Driver status updated successfully', updatedCount: result.modifiedCount };
 }

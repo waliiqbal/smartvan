@@ -23,6 +23,10 @@ export class Notification {
     @Prop({ required: false })
   parentId?: string;
 
+  @Prop({ required: false })
+  driverId?: string;
+
+
     @Prop({ required: false })
   VanId?: string;
 

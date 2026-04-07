@@ -386,7 +386,9 @@ async getVanById(vanId: string) {
       numberPlate: van.carNumber || "",
       capacity: van.venCapacity || 0,
       route: van.assignRoute || "",
-      status: van.status || "inactive",
+      status: van.status ,
+      ownVan: van.ownVan,
+
 
       // ✅ driver info direct fields ke saath
       driverName: driver?.fullname || "",
@@ -1161,7 +1163,8 @@ async removeDriversFromSchool(
     if (van && van.ownVan === true) {
       // 👉 Sirf school se unlink
       van.schoolId = null;
-      van.status = 'inActive'; // van ko inActive kar do jab driver school se remove ho
+      van.status = 'inActive';
+      driver.status = 'inActive';
       await van.save();
     } 
 
@@ -1177,7 +1180,23 @@ async removeDriversFromSchool(
         },
       );
     }
+
+            // 💾 Save notification in DB
+    await this.databaseService.repositories.notificationModel.create({
+      type: 'admin',
+      schoolId: schoolIdString,
+      driverId: driver._id.toString(),
+      infoType: "Information",
+      title,
+      message,
+      actionType: 'VAN_STATUS_UPDATED',
+      status: 'sent',
+      date: new Date(),
+    });
   }
+  
+
+  
 
   return {
     message: 'Drivers removed from school successfully',

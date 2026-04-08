@@ -202,9 +202,7 @@ async getAssignedTripByDriver(driverId: string) {
 
 
 
-   if (van.status !== 'active') {
-    throw new BadRequestException('Van is inactive');
-  }
+
 
   console.log(van._id)
   // Step 3: Routes find karo

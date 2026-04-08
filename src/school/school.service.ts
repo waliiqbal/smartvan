@@ -129,9 +129,10 @@ console.log(vans)
   
    
   const drivers = await this.databaseService.repositories.driverModel
-      .find({ schoolId, isDelete: { $ne: true } }) // 👈 filter out deleted drivers
+      .find({ schoolId, isDelete: { $ne: true }, status: 'active' }) // 👈 filter out deleted drivers
       .sort({ _id: -1 }) // 👈 newest driver first
       .lean();
+      
 
 
 

@@ -35,7 +35,23 @@ async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
     throw new UnauthorizedException('Parent not found');
   }
 
-  // Step 3: Create kid
+    // ✅ Step 3: Check Van (NEW LOGIC)
+  if (CreateKidDto.VanId) {
+    
+    const van = await this.databaseService.repositories.VanModel.findById(CreateKidDto.VanId);
+
+    // ❌ Van not found
+    if (!van) {
+      throw new NotFoundException('Van not found');
+    }
+
+    // ❌ Van not active
+    if (van.status !== 'active') {
+      throw new BadRequestException('Van is not active, cannot assign kid');
+    }
+  }
+
+
   const newKid = new this.databaseService.repositories.KidModel({
     ...CreateKidDto,
     parentId: Parent._id,
@@ -394,13 +410,25 @@ const driver = await this.databaseService.repositories.driverModel.findOne({
   isDelete: false,
 });
 
+
+
   if (driver.status !== "active") {
     throw new BadRequestException('Driver is not active');
   }
 
+  
+
   if (!driver) {
     throw new BadRequestException('Driver not found in this school');
   }
+
+  const existingVan = await this.databaseService.repositories.VanModel.findOne({
+  driverId: driverObjectId,
+});
+
+if (existingVan) {
+  throw new BadRequestException('Driver is already assigned to another van');
+}
 
   // 3️⃣ Find Van
   const van = await this.databaseService.repositories.VanModel.findOne({
@@ -586,14 +614,11 @@ async verifyStudentsByAdmin(
 
 async removeVanFromKids(
   kidIds: string[],
- 
 ) {
 
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
 
-  
-
-
+  // 1️⃣ Remove Van
   const result =
     await this.databaseService.repositories.KidModel.updateMany(
       {
@@ -606,20 +631,82 @@ async removeVanFromKids(
       },
     );
 
-
-  const updatedKids =
+  // 2️⃣ Fetch Kids (parent + name)
+  const kids =
     await this.databaseService.repositories.KidModel.find(
       {
         _id: { $in: kidObjectIds },
       },
-    
+      {
+        parentId: 1,
+        fullname: 1,
+        schoolId: 1,
+      },
     );
 
+  // 3️⃣ Unique Parent IDs
+  const uniqueParentIds = [
+    ...new Set(
+      kids
+        .filter(k => k.parentId)
+        .map(k => k.parentId.toString()),
+    ),
+  ];
+
+  // 4️⃣ Send Notification (ONE per parent)
+  for (const parentId of uniqueParentIds) {
+
+    const parent =
+      await this.databaseService.repositories.parentModel.findOne({
+        _id: parentId,
+        isDelete: false,
+      });
+
+    if (!parent) continue;
+
+    const title = "Van Removed";
+
+    // Parent ke kids filter
+    const kidsOfParent = kids.filter(
+      k => k.parentId && k.parentId.toString() === parentId,
+    );
+
+    const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
+
+    const message = `Your child ${kidNames} has been removed from the van.`;
+
+    // 🔔 Push Notification
+    if (parent.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        parent.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+        },
+      );
+    }
+
+    // 💾 Save Notification
+    await this.databaseService.repositories.notificationModel.create({
+      type: "admin",
+      parentId: parent._id.toString(),
+      schoolId: kidsOfParent[0]?.schoolId, // kisi ek kid ka school
+      infoType: "Information",
+      infoType2: "forParents",
+      VanId: null,
+      title,
+      message,
+      actionType: "VAN_REMOVED",
+      status: "sent",
+      date: new Date(),
+    });
+  }
 
   return {
-    message: 'Van removed from kids successfully',
+    message: 'Van removed from kids successfully & parents notified',
     modifiedCount: result.modifiedCount,
-    kids: updatedKids,
   };
 }
 
@@ -639,6 +726,23 @@ async updateKid(parentId: string, kidId: string, createKidDto: CreateKidDto) {
     if (!kid) {
       throw new BadRequestException('kid not found');
     }
+
+      if (createKidDto.VanId) {
+
+    // Agar already van assigned hai
+    if (kid.VanId) {
+      throw new BadRequestException(
+        'Kid already assigned to a van. Ask admin to remove van first.',
+      );
+    }
+
+    // Optional: Agar tum chaho active check bhi yahan laga sakte ho
+    const van = await this.databaseService.repositories.VanModel.findById(createKidDto.VanId);
+
+    if (!van) {
+      throw new NotFoundException('Van not found');
+    }
+  }
 
     // 🔹 Step 3: Update van with DTO
     const updatedKid = await this.databaseService.repositories.KidModel.findByIdAndUpdate(

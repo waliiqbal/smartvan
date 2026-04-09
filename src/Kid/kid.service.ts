@@ -941,8 +941,9 @@ async removeVanFromKids(kidIds: string[]) {
   const kids =
     await this.databaseService.repositories.KidModel.find(
       {
-        _id: { $in: kidObjectIds },
-      },
+         _id: { $in: kidObjectIds },
+         VanId: { $ne: null }, // ✅ ONLY those who actually had a van
+  },
       {
         parentId: 1,
         fullname: 1,

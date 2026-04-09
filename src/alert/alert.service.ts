@@ -569,7 +569,7 @@ async getAlertsForDriver(driverId: string) {
   // 🔹 Dynamic OR conditions
   const orConditions: any[] = [
     { recipientType: "ALL_DRIVERS" },
-    { driverId: driverObjectId.toString() },
+    { driverId: driverObjectId.toString() }
   ];
 
   // ✅ sirf tab add karo jab vanId exist kare

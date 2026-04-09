@@ -517,6 +517,8 @@ async assignVanToStudents(
       parentId: parent._id.toString(),
       schoolId: schoolIdString,
       VanId: vanId,
+      infoType: "Information",
+      infoType2: "forParents",
       title,
       message,
       actionType: "VAN_ASSIGNED",
@@ -559,7 +561,6 @@ async assignVanToStudents(
         schoolId: schoolIdString,
         VanId: vanId,
         infoType: "Information",
-        infoType2: "forParents",
         title: driverTitle,
         message: driverMessage,
         actionType: "DRIVER_NEW_STUDENTS_ASSIGNED",
@@ -1019,7 +1020,7 @@ async removeVanFromKids(kidIds: string[]) {
     // 💾 Save Notification
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
-      parentId: parent._id, // 🔥 ObjectId hi rakha
+      parentId: parent._id.toString(), // 🔥 ObjectId hi rakha
       schoolId: kidsOfParent[0]?.schoolId,
       infoType: "Information",
       infoType2: "forParents",

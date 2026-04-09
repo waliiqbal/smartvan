@@ -229,15 +229,168 @@ async getKids(userId: string, userType: string) {
 }
 
 
+// async assignVanToStudents(
+//   kidIds: string[],
+//   vanId: string,
+//   adminId: string,
+// ) {
+
+
+//   const adminObjectId = new Types.ObjectId(adminId);
+
+//   const school = await this.databaseService.repositories.SchoolModel.findOne({
+//     admin: adminObjectId,
+//   });
+
+//   if (!school) {
+//     throw new UnauthorizedException('School not found');
+//   }
+
+//   const schoolIdString = school._id.toString();
+
+//   const van = await this.databaseService.repositories.VanModel.findOne({
+//     _id: vanId,
+//     schoolId: schoolIdString,
+//   });
+
+
+
+//   if (!van) {
+//     throw new BadGatewayException('Van not found in this school');
+//   }
+
+//   if (van.status !== "active") {
+//     throw new BadRequestException('Van is not active');
+//   }
+
+ 
+
+//   console.log(van)
+
+//   const driverId = van.driverId;
+//   if (!driverId) {
+//     throw new BadRequestException('Driver not found for this van'); 
+//   }
+
+//   const driver = await this.databaseService.repositories.driverModel.findOne({
+//     _id: driverId,  
+//     schoolId: schoolIdString,
+//     isDelete: false,
+//   });
+
+//   if (!driver) {
+//     throw new BadRequestException('Driver not found for this van'); 
+//   }
+
+//   if (driver.status !== "active") {   
+//     throw new BadRequestException('Driver is not active');
+//   }
+
+//   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
+//   console.log(kidObjectIds)
+
+//   // 1️⃣ Update Kids
+//   await this.databaseService.repositories.KidModel.updateMany(
+//     {
+//       _id: { $in: kidObjectIds },
+//       schoolId: schoolIdString,
+//     },
+//     {
+//       $set: {
+//         VanId: vanId,
+//       },
+//     },
+//   );
+
+//   // 2️⃣ Fetch Kids
+//   const kids = await this.databaseService.repositories.KidModel.find(
+//     {
+//       _id: { $in: kidObjectIds },
+//       schoolId: schoolIdString,
+//     },
+//     {
+//       parentId: 1,
+//       fullname: 1,
+//     },
+//   );
+
+
+//   // 3️⃣ Unique Parent IDs
+//   const uniqueParentIds = [
+//     ...new Set(
+//       kids
+//         .filter(k => k.parentId)
+//         .map(k => k.parentId.toString()),
+//     ),
+//   ];
+
+//   // 4️⃣ Send Notification
+//   for (const parentId of uniqueParentIds) {
+
+//    const parent = await this.databaseService.repositories.parentModel.findOne({
+//   _id: parentId,
+//   isDelete: false,
+// });
+
+//     if (!parent || parent.isDelete === true) continue;
+
+//     const title = "Van Assigned";
+
+//     // Parent ke kids filter
+//     const kidsOfParent = kids.filter(
+//       k => k.parentId && k.parentId.toString() === parentId,
+//     );
+
+//     const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
+
+//     const message = `Your child ${kidNames} has been assigned to the van.`;
+
+//     console.log (parent);
+
+//     // 🔔 Push Notification
+//     if (parent.fcmToken) {
+//       await this.firebaseAdminService.sendToDevice(
+//         parent.fcmToken,
+//         {
+//           notification: {
+//             title,
+//             body: message,
+//           },
+//         },
+//       );
+//     }
+
+//     // 💾 Save Notification
+//     await this.databaseService.repositories.notificationModel.create({
+//       type: "admin",
+//       parentId: parent._id.toString(),
+//       schoolId: schoolIdString,
+//       infoType: "Information",
+//       infoType2: "forParents",
+//       VanId: vanId,
+//       title,
+//       message,
+//       actionType: "VAN_ASSIGNED",
+//       status: "sent",
+//       date: new Date(),
+//     });
+//   }
+
+  
+
+//   return {
+//     message: "Van assigned & parents notified successfully",
+//   };
+// }
+
 async assignVanToStudents(
   kidIds: string[],
   vanId: string,
   adminId: string,
 ) {
-
-
   const adminObjectId = new Types.ObjectId(adminId);
 
+  // 1️⃣ Check School
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -248,125 +401,121 @@ async assignVanToStudents(
 
   const schoolIdString = school._id.toString();
 
+  // 2️⃣ Check Van
   const van = await this.databaseService.repositories.VanModel.findOne({
     _id: vanId,
     schoolId: schoolIdString,
   });
 
-
-
   if (!van) {
-    throw new BadGatewayException('Van not found in this school');
+    throw new BadRequestException('Van not found in this school');
   }
 
   if (van.status !== "active") {
     throw new BadRequestException('Van is not active');
   }
 
- 
-
-  console.log(van)
-
-  const driverId = van.driverId;
-  if (!driverId) {
-    throw new BadRequestException('Driver not found for this van'); 
+  // 3️⃣ Check Driver
+  if (!van.driverId) {
+    throw new BadRequestException('Driver not assigned to this van');
   }
 
   const driver = await this.databaseService.repositories.driverModel.findOne({
-    _id: driverId,  
+    _id: van.driverId,
     schoolId: schoolIdString,
     isDelete: false,
   });
 
-  if (!driver) {
-    throw new BadRequestException('Driver not found for this van'); 
+  if (!driver || driver.status !== "active") {
+    throw new BadRequestException('Driver not active');
   }
 
-  if (driver.status !== "active") {   
-    throw new BadRequestException('Driver is not active');
-  }
+  const driverId = van.driverId;
 
+  // 4️⃣ Convert IDs
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
-  console.log(kidObjectIds)
 
-  // 1️⃣ Update Kids
-  await this.databaseService.repositories.KidModel.updateMany(
-    {
-      _id: { $in: kidObjectIds },
-      schoolId: schoolIdString,
-    },
-    {
-      $set: {
-        VanId: vanId,
-      },
-    },
+  // 5️⃣ Fetch Kids
+  const kids = await this.databaseService.repositories.KidModel.find({
+    _id: { $in: kidObjectIds },
+    schoolId: schoolIdString,
+  });
+
+  // 6️⃣ Categorize Kids
+  const assignableKids = [];
+  const alreadySameVan = [];
+  const differentVanKids = [];
+
+  for (const kid of kids) {
+    if (!kid.VanId) {
+      assignableKids.push(kid);
+    } 
+    else if (kid.VanId.toString() === vanId) {
+      alreadySameVan.push(kid);
+    } 
+    else {
+      differentVanKids.push(kid);
+    }
+  }
+
+  // 7️⃣ Assign ONLY valid kids
+  const assignableIds = assignableKids.map(k => k._id);
+
+  if (assignableIds.length > 0) {
+    await this.databaseService.repositories.KidModel.updateMany(
+      { _id: { $in: assignableIds } },
+      { $set: { VanId: vanId } },
+    );
+  }
+
+  // 8️⃣ Fetch updated kids (for parent notification)
+  const updatedKids = await this.databaseService.repositories.KidModel.find(
+    { _id: { $in: assignableIds } },
+    { parentId: 1, fullname: 1 },
   );
 
-  // 2️⃣ Fetch Kids
-  const kids = await this.databaseService.repositories.KidModel.find(
-    {
-      _id: { $in: kidObjectIds },
-      schoolId: schoolIdString,
-    },
-    {
-      parentId: 1,
-      fullname: 1,
-    },
-  );
-
-
-  // 3️⃣ Unique Parent IDs
+  // 9️⃣ Unique Parents
   const uniqueParentIds = [
     ...new Set(
-      kids
+      updatedKids
         .filter(k => k.parentId)
         .map(k => k.parentId.toString()),
     ),
   ];
 
-  // 4️⃣ Send Notification
+  // 🔔 Parent Notifications
   for (const parentId of uniqueParentIds) {
+    const parent = await this.databaseService.repositories.parentModel.findOne({
+      _id: parentId,
+      isDelete: false,
+    });
 
-   const parent = await this.databaseService.repositories.parentModel.findOne({
-  _id: parentId,
-  isDelete: false,
-});
+    if (!parent) continue;
 
-    if (!parent || parent.isDelete === true) continue;
-
-    const title = "Van Assigned";
-
-    // Parent ke kids filter
-    const kidsOfParent = kids.filter(
+    const kidsOfParent = updatedKids.filter(
       k => k.parentId && k.parentId.toString() === parentId,
     );
 
     const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
 
+    const title = "Van Assigned";
     const message = `Your child ${kidNames} has been assigned to the van.`;
 
-    console.log (parent);
-
-    // 🔔 Push Notification
+    // Push
     if (parent.fcmToken) {
-      await this.firebaseAdminService.sendToDevice(
-        parent.fcmToken,
-        {
-          notification: {
-            title,
-            body: message,
-          },
+      await this.firebaseAdminService.sendToDevice(parent.fcmToken, {
+        notification: {
+          title,
+          body: message,
         },
-      );
+      });
     }
 
-    // 💾 Save Notification
+    // Save DB
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
       parentId: parent._id.toString(),
       schoolId: schoolIdString,
-      infoType: "Information",
-      infoType2: "forParents",
       VanId: vanId,
       title,
       message,
@@ -376,13 +525,84 @@ async assignVanToStudents(
     });
   }
 
-  
+  // 🚐 DRIVER NOTIFICATION (NEW)
+  const assignedCount = assignableKids.length;
 
+  if (assignedCount > 0) {
+    const driverData =
+      await this.databaseService.repositories.driverModel.findOne({
+        _id: driverId,
+        isDelete: false,
+      });
+
+    if (driverData) {
+      const driverTitle = "New Students Assigned";
+      const driverMessage = `${assignedCount} new student(s) assigned to your van.`;
+
+      // Push
+      if (driverData.fcmToken) {
+        await this.firebaseAdminService.sendToDevice(
+          driverData.fcmToken,
+          {
+            notification: {
+              title: driverTitle,
+              body: driverMessage,
+            },
+          },
+        );
+      }
+
+      // Save DB
+      await this.databaseService.repositories.notificationModel.create({
+        type: "admin",
+        driverId: driverId.toString(),
+        schoolId: schoolIdString,
+        VanId: vanId,
+        title: driverTitle,
+        message: driverMessage,
+        actionType: "DRIVER_NEW_STUDENTS_ASSIGNED",
+        status: "sent",
+        date: new Date(),
+      });
+    }
+  }
+
+  // 🔥 FINAL RESPONSE
   return {
-    message: "Van assigned & parents notified successfully",
+    message: "Van assignment processed successfully",
+
+    summary: {
+      totalRequested: kidIds.length,
+      assigned: assignableKids.length,
+      alreadySameVan: alreadySameVan.length,
+      differentVan: differentVanKids.length,
+    },
+
+    details: {
+      assignedKids: assignableKids.map(k => ({
+        id: k._id,
+        name: k.fullname,
+      })),
+
+      alreadySameVanKids: alreadySameVan.map(k => ({
+        id: k._id,
+        name: k.fullname,
+        reason: "ALREADY_ASSIGNED_TO_THIS_VAN",
+      })),
+
+      differentVanKids: differentVanKids.map(k => ({
+        id: k._id,
+        name: k.fullname,
+        reason: "ASSIGNED_TO_OTHER_VAN",
+      })),
+    },
+
+    driverNotification: {
+      sent: assignableKids.length > 0,
+      assignedCount: assignableKids.length,
+    },
   };
 }
-
 async assignVanToDriver(
   driverId: string,
   vanId: string,

@@ -558,6 +558,8 @@ async assignVanToStudents(
         driverId: driverId.toString(),
         schoolId: schoolIdString,
         VanId: vanId,
+        infoType: "Information",
+        infoType2: "forParents",
         title: driverTitle,
         message: driverMessage,
         actionType: "DRIVER_NEW_STUDENTS_ASSIGNED",
@@ -832,13 +834,141 @@ async verifyStudentsByAdmin(
   };
 }
 
-async removeVanFromKids(
-  kidIds: string[],
-) {
+// async removeVanFromKids(
+//   kidIds: string[],
+// ) {
+
+//   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
+
+//   // 1️⃣ Remove Van
+//   const result =
+//     await this.databaseService.repositories.KidModel.updateMany(
+//       {
+//         _id: { $in: kidObjectIds },
+//       },
+//       {
+//         $set: {
+//           VanId: null,
+//         },
+//       },
+//     );
+
+//   // 2️⃣ Fetch Kids (parent + name)
+//   const kids =
+//     await this.databaseService.repositories.KidModel.find(
+//       {
+//         _id: { $in: kidObjectIds },
+//       },
+//       {
+//         parentId: 1,
+//         fullname: 1,
+//         schoolId: 1,
+//       },
+//     );
+
+//   // 3️⃣ Unique Parent IDs
+//   const uniqueParentIds = [
+//     ...new Set(
+//       kids
+//         .filter(k => k.parentId)
+//         .map(k => k.parentId.toString()),
+//     ),
+//   ];
+
+//   // 4️⃣ Send Notification (ONE per parent)
+//   for (const parentId of uniqueParentIds) {
+
+//     const parent =
+//       await this.databaseService.repositories.parentModel.findOne({
+//         _id: parentId,
+//         isDelete: false,
+//       });
+
+//     if (!parent) continue;
+
+//     const title = "Van Removed";
+
+//     // Parent ke kids filter
+//     const kidsOfParent = kids.filter(
+//       k => k.parentId && k.parentId.toString() === parentId,
+//     );
+
+//     const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
+
+//     const message = `Your child ${kidNames} has been removed from the van.`;
+
+//     // 🔔 Push Notification
+//     if (parent.fcmToken) {
+//       await this.firebaseAdminService.sendToDevice(
+//         parent.fcmToken,
+//         {
+//           notification: {
+//             title,
+//             body: message,
+//           },
+//         },
+//       );
+//     }
+
+//     // 💾 Save Notification
+//     await this.databaseService.repositories.notificationModel.create({
+//       type: "admin",
+//       parentId: parent._id.toString(),
+//       schoolId: kidsOfParent[0]?.schoolId, // kisi ek kid ka school
+//       infoType: "Information",
+//       infoType2: "forParents",
+//       VanId: null,
+//       title,
+//       message,
+//       actionType: "VAN_REMOVED",
+//       status: "sent",
+//       date: new Date(),
+//     });
+//   }
+
+//   return {
+//     message: 'Van removed from kids successfully & parents notified',
+//     modifiedCount: result.modifiedCount,
+//   };
+// }
+
+async removeVanFromKids(kidIds: string[]) {
 
   const kidObjectIds = kidIds.map(id => new Types.ObjectId(id));
 
-  // 1️⃣ Remove Van
+  // 1️⃣ Fetch kids FIRST (old VanId preserve)
+  const kids =
+    await this.databaseService.repositories.KidModel.find(
+      {
+        _id: { $in: kidObjectIds },
+      },
+      {
+        parentId: 1,
+        fullname: 1,
+        schoolId: 1,
+        VanId: 1,
+      },
+    );
+
+  // 2️⃣ Unique Parent IDs
+  const uniqueParentIds = [
+    ...new Set(
+      kids
+        .filter(k => k.parentId)
+        .map(k => k.parentId.toString()),
+    ),
+  ];
+
+  // 3️⃣ Unique Van IDs (OLD)
+  const uniqueVanIds = [
+    ...new Set(
+      kids
+        .filter(k => k.VanId)
+        .map(k => k.VanId.toString()),
+    ),
+  ].map(id => new Types.ObjectId(id)); // 🔥 convert back to ObjectId
+
+  // 4️⃣ Remove Van
   const result =
     await this.databaseService.repositories.KidModel.updateMany(
       {
@@ -851,51 +981,29 @@ async removeVanFromKids(
       },
     );
 
-  // 2️⃣ Fetch Kids (parent + name)
-  const kids =
-    await this.databaseService.repositories.KidModel.find(
-      {
-        _id: { $in: kidObjectIds },
-      },
-      {
-        parentId: 1,
-        fullname: 1,
-        schoolId: 1,
-      },
-    );
-
-  // 3️⃣ Unique Parent IDs
-  const uniqueParentIds = [
-    ...new Set(
-      kids
-        .filter(k => k.parentId)
-        .map(k => k.parentId.toString()),
-    ),
-  ];
-
-  // 4️⃣ Send Notification (ONE per parent)
+  // ===========================
+  // 🔔 PARENT NOTIFICATIONS
+  // ===========================
   for (const parentId of uniqueParentIds) {
 
     const parent =
       await this.databaseService.repositories.parentModel.findOne({
-        _id: parentId,
+        _id: new Types.ObjectId(parentId),
         isDelete: false,
       });
 
     if (!parent) continue;
 
-    const title = "Van Removed";
-
-    // Parent ke kids filter
     const kidsOfParent = kids.filter(
       k => k.parentId && k.parentId.toString() === parentId,
     );
 
     const kidNames = kidsOfParent.map(k => k.fullname).join(", ");
 
+    const title = "Van Removed";
     const message = `Your child ${kidNames} has been removed from the van.`;
 
-    // 🔔 Push Notification
+    // 🔔 FCM
     if (parent.fcmToken) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
@@ -911,8 +1019,8 @@ async removeVanFromKids(
     // 💾 Save Notification
     await this.databaseService.repositories.notificationModel.create({
       type: "admin",
-      parentId: parent._id.toString(),
-      schoolId: kidsOfParent[0]?.schoolId, // kisi ek kid ka school
+      parentId: parent._id, // 🔥 ObjectId hi rakha
+      schoolId: kidsOfParent[0]?.schoolId,
       infoType: "Information",
       infoType2: "forParents",
       VanId: null,
@@ -924,12 +1032,75 @@ async removeVanFromKids(
     });
   }
 
+  // ===========================
+  // 🚐 DRIVER NOTIFICATIONS
+  // ===========================
+
+  // 5️⃣ Fetch Vans
+  const vans =
+    await this.databaseService.repositories.VanModel.find({
+      _id: { $in: uniqueVanIds },
+    });
+
+  for (const van of vans) {
+
+    // ❌ No driver → skip
+    if (!van.driverId) continue;
+
+    const driver =
+      await this.databaseService.repositories.driverModel.findOne({
+        _id: van.driverId, // 🔥 already ObjectId
+        isDelete: false,
+      });
+
+    if (!driver) continue;
+
+    const kidsOfVan = kids.filter(
+      k =>
+        k.VanId &&
+        k.VanId.toString() === van._id.toString(),
+    );
+
+    if (kidsOfVan.length === 0) continue;
+
+    const kidNames = kidsOfVan.map(k => k.fullname).join(", ");
+
+    const title = "Kids Removed From Van";
+    const message = `Kids ${kidNames} have been removed from your van.`;
+
+    // 🔔 FCM
+    if (driver.fcmToken) {
+      await this.firebaseAdminService.sendToDevice(
+        driver.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+        },
+      );
+    }
+
+    // 💾 Save Notification
+    await this.databaseService.repositories.notificationModel.create({
+      type: "admin",
+      driverId: driver._id.toString(), // 🔥 ObjectId
+      VanId: van._id.toString(),       // 🔥 ObjectId
+      schoolId: kidsOfVan[0]?.schoolId,
+      infoType: "Information",
+      title,
+      message,
+      actionType: "KIDS_REMOVED_FROM_VAN",
+      status: "sent",
+      date: new Date(),
+    });
+  }
+
   return {
-    message: 'Van removed from kids successfully & parents notified',
+    message: 'Van removed from kids successfully & parents & drivers notified',
     modifiedCount: result.modifiedCount,
   };
 }
-
 
 
 

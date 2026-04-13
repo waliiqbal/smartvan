@@ -13,6 +13,8 @@ import * as crypto from 'crypto';
 import { EditDriverDto } from './dto/editDriver.dto';
 import { title } from 'process';
 import { Admin } from 'src/admin/admin.schema';
+import { Trip } from 'src/database/schema';
+import { start } from 'repl';
 
 @Injectable()
 export class VanService { 
@@ -374,6 +376,10 @@ async getVanById(vanId: string) {
   if (van.driverId) {
     driver = await this.databaseService.repositories.driverModel.findById(van.driverId);
   }
+   
+  const routes = await this.databaseService.repositories.routeModel.find({
+    vanId: van._id.toString(),
+  });
 
   // 3. Response return karo
   return {
@@ -393,9 +399,18 @@ async getVanById(vanId: string) {
       // ✅ driver info direct fields ke saath
       driverName: driver?.fullname || "",
       driverPhone: driver?.phoneNo || "",
+      driverEmail: driver?.email || "",
       driverCnic: driver?.NIC || "",
       driverPicture: driver?.image || "",
       driverId: driver?._id || null,
+
+         routes: routes.map(r => ({
+        id: r._id,
+        routeName: r.title || "",
+        tripType: r.tripType || "",
+        startTime: r.startTime || "",
+        // jo fields tumhare model me hain wo yahan add karo
+      })),
     },
   };
 }

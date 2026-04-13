@@ -950,6 +950,212 @@ async getKids(AdminId: string, query: any) {
   };
 }
 
+async getKidsBySuperAdmin(SuperAdminId: string, query: any) {
+  const page = Math.max(1, parseInt(query.page as string, 10) || 1);
+  const limit = Math.max(1, parseInt(query.limit as string, 10) || 10);
+
+  const kidsName =
+    typeof query.kidsName === "string" ? query.kidsName.trim() : "";
+
+  const parentName =
+    typeof query.parentName === "string" ? query.parentName.trim() : "";
+
+  const driverName =
+    typeof query.driverName === "string" ? query.driverName.trim() : "";
+
+  const carNumber =
+    typeof query.carNumber === "string" ? query.carNumber.trim() : "";
+
+  const schoolId =
+    typeof query.schoolId === "string" ? query.schoolId.trim() : "";
+
+  const grade =
+    typeof query.grade === "string" ? Number(query.grade) : null;
+
+  const skip = (page - 1) * limit;
+
+  // 🔹 Base pipeline
+  const basePipeline: any[] = [
+    {
+      $match: {
+        ...(schoolId ? { schoolId: schoolId } : {}), // 👈 main change
+
+        ...(kidsName
+          ? {
+              fullname: { $regex: kidsName, $options: "i" },
+            }
+          : {}),
+      },
+    },
+
+    {
+      $addFields: {
+        vanObjectId: {
+          $cond: {
+            if: {
+              $and: [{ $ne: ["$VanId", null] }, { $ne: ["$VanId", ""] }],
+            },
+            then: { $toObjectId: "$VanId" },
+            else: null,
+          },
+        },
+      },
+    },
+
+    // 🔹 Parent
+    {
+      $lookup: {
+        from: "parents",
+        localField: "parentId",
+        foreignField: "_id",
+        as: "parent",
+      },
+    },
+    { $unwind: { path: "$parent", preserveNullAndEmptyArrays: true } },
+
+    // 🔹 Van
+    {
+      $lookup: {
+        from: "vans",
+        localField: "vanObjectId",
+        foreignField: "_id",
+        as: "van",
+      },
+    },
+    { $unwind: { path: "$van", preserveNullAndEmptyArrays: true } },
+
+    // 🔹 Driver
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "van.driverId",
+        foreignField: "_id",
+        as: "driver",
+      },
+    },
+    { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+  ];
+
+  // 🔹 Filters
+  const andFilters: any[] = [];
+
+  if (parentName) {
+    andFilters.push({
+      "parent.fullname": { $regex: parentName, $options: "i" },
+    });
+  }
+
+  if (driverName) {
+    andFilters.push({
+      "driver.fullname": { $regex: driverName, $options: "i" },
+    });
+  }
+
+  if (carNumber) {
+    andFilters.push({
+      "van.carNumber": { $regex: carNumber, $options: "i" },
+    });
+  }
+
+  if (grade !== null && !isNaN(grade)) {
+    andFilters.push({ grade: grade });
+  }
+
+  if (andFilters.length) {
+    basePipeline.push({
+      $match: { $and: andFilters },
+    });
+  }
+
+  // 🔹 Data pipeline
+  const dataPipeline: any[] = [
+    ...basePipeline,
+    { $sort: { createdAt: -1 } },
+    {
+      $project: {
+        student: {
+          id: { $toString: "$_id" },
+          parentId: {
+            $cond: [
+              { $ifNull: ["$parentId", false] },
+              { $toString: "$parentId" },
+              null,
+            ],
+          },
+          vanId: "$VanId",
+          schoolId: "$schoolId",
+          fullname: { $ifNull: ["$fullname", ""] },
+          gender: { $ifNull: ["$gender", ""] },
+          grade: { $ifNull: ["$grade", ""] },
+          image: { $ifNull: ["$image", ""] },
+          status: { $ifNull: ["$status", ""] },
+          age: { $ifNull: ["$age", null] },
+          dob: { $ifNull: ["$dob", null] },
+        },
+        parent: {
+          id: {
+            $cond: [
+              { $ifNull: ["$parent._id", false] },
+              { $toString: "$parent._id" },
+              null,
+            ],
+          },
+          fullname: { $ifNull: ["$parent.fullname", ""] },
+          email: { $ifNull: ["$parent.email", ""] },
+          phoneNo: { $ifNull: ["$parent.phoneNo", ""] },
+          address: { $ifNull: ["$parent.address", ""] },
+        },
+        van: {
+          id: {
+            $cond: [
+              { $ifNull: ["$van._id", false] },
+              { $toString: "$van._id" },
+              null,
+            ],
+          },
+          vehicleType: { $ifNull: ["$van.vehicleType", ""] },
+          carNumber: { $ifNull: ["$van.carNumber", ""] },
+        },
+        driver: {
+          id: {
+            $cond: [
+              { $ifNull: ["$driver._id", false] },
+              { $toString: "$driver._id" },
+              null,
+            ],
+          },
+          fullname: { $ifNull: ["$driver.fullname", ""] },
+          phoneNo: { $ifNull: ["$driver.phoneNo", ""] },
+        },
+        _id: 0,
+      },
+    },
+    { $skip: skip },
+    { $limit: limit },
+  ];
+
+  const kids =
+    await this.databaseService.repositories.KidModel.aggregate(dataPipeline);
+
+  // 🔹 Count
+  const countPipeline: any[] = [...basePipeline, { $count: "total" }];
+
+  const countResult =
+    await this.databaseService.repositories.KidModel.aggregate(countPipeline);
+
+  const total = countResult[0]?.total || 0;
+
+  return {
+    message: "Kids fetched successfully",
+    data: kids,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
 
 
 async editStudent(KidId: string, AdminId: string, editStudentDto: EditStudentDto) {
@@ -1045,7 +1251,9 @@ async getKidById(kidId: string, AdminId: string) {
       image: kid.image || "",
       status: kid.status || "pending",
       parentEmail: parent ? parent.email : null,
-      parentName: parent? parent.fullname : null , // agar parent mila to email, warna null
+      parentName: parent? parent.fullname : null ,
+      parentContact: parent ? parent.phoneNo : null,
+      parentAddress: parent ? parent.address : null,
       vehicleType: van ? van.vehicleType : null,
       route: van ? van.assignRoute : null,
       carNumber: van ? van.carNumber : null,
@@ -1248,7 +1456,242 @@ async changePassword(
   }
 }
 
+async getVansBySuperAdmin(
+  SuperAdminId: string, // (agar validate karna ho to use karo warna ignore bhi kar sakte ho)
+  page = 1,
+  limit = 10,
+  search?: string,
+  schoolId?: string, // 👈 new filter
+) {
+  const skip = (page - 1) * limit;
 
+  // 🔹 Match filter
+  const matchFilter: any = {
+    ...(schoolId ? { schoolId: schoolId } : {}),
+
+    ...(search
+      ? { carNumber: { $regex: search, $options: 'i' } }
+      : {}),
+  };
+
+  // 🔹 Aggregation pipeline
+  const pipeline = [
+    {
+      $match: matchFilter,
+    },
+
+    // 🔹 Driver lookup
+    {
+      $lookup: {
+        from: 'drivers',
+        localField: 'driverId',
+        foreignField: '_id',
+        as: 'driver',
+      },
+    },
+    {
+      $unwind: {
+        path: '$driver',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    // 🔹 Routes lookup
+    {
+      $lookup: {
+        from: 'routes',
+        let: { vanIdStr: { $toString: '$_id' } },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ['$vanId', '$$vanIdStr'],
+              },
+            },
+          },
+        ],
+        as: 'routes',
+      },
+    },
+
+    // 🔹 Final response
+    {
+      $project: {
+        van: {
+          id: { $toString: '$_id' },
+          condition: { $ifNull: ['$condition', ''] },
+          deviceId: { $ifNull: ['$deviceId', ''] },
+          assignRoute: { $ifNull: ['$assignRoute', ''] },
+          vehicleType: { $ifNull: ['$vehicleType', ''] },
+          carNumber: { $ifNull: ['$carNumber', ''] },
+          status: { $ifNull: ['$status', ''] },
+          ownVan: { $ifNull: ['$ownVan', false] },
+        },
+
+        driver: {
+          id: {
+            $cond: [
+              { $ifNull: ['$driver._id', false] },
+              { $toString: '$driver._id' },
+              null,
+            ],
+          },
+          fullname: { $ifNull: ['$driver.fullname', ''] },
+          image: { $ifNull: ['$driver.image', ''] },
+          phoneNo: { $ifNull: ['$driver.phoneNo', ''] },
+        },
+
+        routes: {
+          $map: {
+            input: '$routes',
+            as: 'r',
+            in: {
+              id: {
+                $cond: [
+                  { $ifNull: ['$$r._id', false] },
+                  { $toString: '$$r._id' },
+                  null,
+                ],
+              },
+              title: { $ifNull: ['$$r.title', '' ] },
+              tripType: { $ifNull: ['$$r.tripType', '' ] },
+            },
+          },
+        },
+
+        _id: 0,
+      },
+    },
+
+    { $skip: skip },
+    { $limit: limit },
+  ];
+
+  const vans =
+    await this.databaseService.repositories.VanModel.aggregate(pipeline);
+
+  // 🔹 Total count
+  const total =
+    await this.databaseService.repositories.VanModel.countDocuments(matchFilter);
+
+  return {
+    message: 'Vans fetched successfully',
+    data: vans,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+async getKidByIdForSuperAdmin(kidId: string) {
+
+
+   
+
+  // Step 1: Find school by admin
+ 
+  
+  // 1. Kid find karo
+  const kid = await this.databaseService.repositories.KidModel.findById(kidId);
+
+  if (!kid) {
+    throw new BadRequestException("Kid not found");
+  }
+
+  // 2. Parent find karo using parentId
+  const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
+  const van = await this.databaseService.repositories.VanModel.findById(kid.VanId);
+  const school = await this.databaseService.repositories.SchoolModel.findById(kid.schoolId);
+
+
+
+
+
+  // 3. Response banao (kid + parent email)
+  return {
+    message: "Kid fetched successfully",
+    data: {
+      id: kid._id,
+      fullname: kid.fullname,
+      age: kid.age,
+      grade: kid.grade,
+      gender: kid.gender,
+      dob: kid.dob,
+      schoolId: school._id,
+      parentId: kid.parentId,
+      VanId: kid.VanId || null,
+      image: kid.image || "",
+      status: kid.status || "pending",
+      parentEmail: parent ? parent.email : null,
+      parentName: parent? parent.fullname : null ,
+      parentContact: parent ? parent.phoneNo : null,
+      parentAddress: parent ? parent.address : null,
+      vehicleType: van ? van.vehicleType : null,
+      route: van ? van.assignRoute : null,
+      carNumber: van ? van.carNumber : null,
+      schoolName: school.schoolName
+
+
+    }
+  };
+}
+
+
+async getAllDriversForSuperAdmin(
+  page = 1,
+  limit = 10,
+  search?: string,
+  status?: 'active' | 'inActive',
+  schoolId?: string, // 👈 optional filter
+) {
+
+  const skip = (page - 1) * limit;
+
+  // 1️⃣ Base query
+  const query: any = {
+    isDelete: false,
+  };
+
+  // 2️⃣ Search filter
+  if (search) {
+    query.fullname = { $regex: search, $options: 'i' };
+  }
+
+  // 3️⃣ Status filter
+  if (status) {
+    query.status = status;
+  }
+
+  // 4️⃣ School filter (IMPORTANT 🔥)
+  if (schoolId) {
+    query.schoolId = schoolId;
+  }
+
+  // 5️⃣ Fetch drivers
+  const drivers = await this.databaseService.repositories.driverModel
+    .find(query)
+    .skip(skip)
+    .limit(limit)
+    .select('fullname email phoneNo status fcmToken image schoolId');
+
+  // 6️⃣ Total count
+  const total = await this.databaseService.repositories.driverModel.countDocuments(query);
+
+  // 7️⃣ Response
+  return {
+    message: 'Drivers fetched successfully',
+    data: drivers,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
 
 
 

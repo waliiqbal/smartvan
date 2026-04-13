@@ -245,4 +245,107 @@ async getVansBySchoolAdmin(    @Req() req: any,
 
 }
 
+@UseGuards(AuthGuard('jwt'))
+    @Get('GetVansBySuperAdmin')
+async GetVansBySuperAdmin(
+  @Req() req: any,
+  @Query('page') page?: string,
+  @Query('limit') limit?: string,
+  @Query('search') search?: string,
+  @Query('schoolId') schoolId?: string, // 👈 new filter
+) {
+  const superAdminId = req.user?.userId;
+
+  if (!superAdminId) {
+    throw new UnauthorizedException('Super Admin not found in token');
+  }
+
+  // 🔹 Pagination
+  const pageNumber = page ? parseInt(page) : 1;
+  const limitNumber = limit ? parseInt(limit) : 10;
+
+  // 🔹 Service call
+  return this.adminService.getVansBySuperAdmin(
+    superAdminId,
+    pageNumber,
+    limitNumber,
+    search,
+    schoolId, // 👈 pass kar diya
+  );
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Get("GetStudentsBySuperAdmin")
+async getStudentsBySuperAdmin(
+  @Req() req: any,
+  @Query() query: any,
+  @Query('page') page?: string,
+  @Query('limit') limit?: string,
+) {
+  const superAdminId = req.user?.userId;
+
+  if (!superAdminId) {
+    throw new UnauthorizedException('Super Admin not found in token');
+  }
+
+  // 🔹 Pagination (optional - already query me bhi hai, but safe rakhte hain)
+  const pageNumber = page ? parseInt(page) : 1;
+  const limitNumber = limit ? parseInt(limit) : 10;
+
+  // 🔹 Query me override kar dete hain (taake service me same logic chale)
+  query.page = pageNumber;
+  query.limit = limitNumber;
+
+  // 🔹 Service call
+  return this.adminService.getKidsBySuperAdmin(
+    superAdminId,
+    query,
+  );
+}
+
+
+  @Get("getStudentByIdForSuperAdmin/:id")
+async getStudentByIdForSuperAdmin(@Param("id") id: string, @Req () req: any,) {
+  return this.adminService.getKidByIdForSuperAdmin(id);
+}
+
+@UseGuards(AuthGuard('jwt')) 
+@Get('getAllDriversForSuperAdmin')
+async getAllDriversForSuperAdmin(
+  @Req() req: any, // JWT decoded user
+  @Query('page') page: string,
+  @Query('limit') limit: string,
+  @Query('search') search?: string,
+  @Query('status') status?: 'active' | 'inActive',
+  @Query('schoolId') schoolId?: string, // 👈 new filter
+) {
+
+  // ✅ optional: check karo user superadmin hai ya nahi
+  const user = req.user;
+
+  if (!user) {
+    throw new UnauthorizedException('User not found in token');
+  }
+
+  // (optional but recommended 🔥)
+  // agar role field hai token me
+  if (user.role !== 'superadmin') {
+    throw new UnauthorizedException('Only superadmin can access this');
+  }
+
+  // page & limit convert
+  const pageNumber = page ? parseInt(page) : 1;
+  const limitNumber = limit ? parseInt(limit) : 10;
+
+  // service call (new method)
+  return this.adminService.getAllDriversForSuperAdmin(
+    pageNumber,
+    limitNumber,
+    search,
+    status,
+    schoolId, // 👈 pass kar diya
+  );
+}
+
+
 }

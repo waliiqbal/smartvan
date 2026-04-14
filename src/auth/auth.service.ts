@@ -158,11 +158,7 @@ async loginUser(loginData: any) {
       // Agar same hai to kuch mat karo
     }
 
-    if (user.notificationToggle === false) {
-      user.fcmToken = null;
-      await user.save();
-    }
-
+  
     const payload = {
       sub: user._id,
       email: user.email,
@@ -797,10 +793,8 @@ async changeNotificationToggle(
     // ✅ Toggle update
     user.notificationToggle = notificationToggle;
 
-    // 🔥 MAIN LOGIC
-    if (notificationToggle === false) {
-      user.fcmToken = null; // ❌ remove token
-    }
+    
+   
 
     await user.save();
 

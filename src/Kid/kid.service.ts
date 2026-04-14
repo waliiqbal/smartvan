@@ -502,7 +502,7 @@ async assignVanToStudents(
     const message = `Your child ${kidNames} has been assigned to the van.`;
 
     // Push
-    if (parent.fcmToken) {
+    if (parent.fcmToken && parent.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(parent.fcmToken, {
         notification: {
           title,

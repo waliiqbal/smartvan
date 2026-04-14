@@ -77,7 +77,7 @@ export class alertService {
 
   });
 
-  if (driver?.fcmToken) {
+  if (driver?.fcmToken && driver.notificationToggle === true) {
     targetUsersFCM.push(driver.fcmToken);
   }
 

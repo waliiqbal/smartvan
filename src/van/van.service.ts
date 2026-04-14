@@ -519,7 +519,7 @@ async updateVanStatusByAdmin(
     // 🔔 Push notification
 
   
-    if (driver.fcmToken) {
+    if (driver.fcmToken && driver.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,
         {
@@ -1043,7 +1043,7 @@ async updateDriverStatusByAdmin(
     van.status = status;
     await van.save();
   }
-    if (driver.fcmToken) {
+    if (driver.fcmToken && driver.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,
         {
@@ -1184,7 +1184,7 @@ async removeDriversFromSchool(
     } 
 
    
-    if (driver.fcmToken) {
+    if (driver.fcmToken && driver.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,
         {

@@ -503,6 +503,7 @@ async assignVanToStudents(
 
     // Push
     if (parent.fcmToken && parent.notificationToggle === true) {
+      console.log(parent.fcmToken);
       await this.firebaseAdminService.sendToDevice(parent.fcmToken, {
         notification: {
           title,
@@ -542,7 +543,7 @@ async assignVanToStudents(
       const driverMessage = `${assignedCount} new student(s) assigned to your van.`;
 
       // Push
-      if (driverData.fcmToken) {
+      if (driverData.fcmToken && driverData.notificationToggle === true) {
         await this.firebaseAdminService.sendToDevice(
           driverData.fcmToken,
           {
@@ -682,7 +683,7 @@ if (existingVan) {
   const title = "Van Assigned";
   const message = "You have been assigned a new van.";
 
-  if (driver.fcmToken) {
+  if (driver.fcmToken && driver.notificationToggle === true) {
     await this.firebaseAdminService.sendToDevice(
       driver.fcmToken,
       {
@@ -804,7 +805,7 @@ async verifyStudentsByAdmin(
         : `Your child ${kidNames} has been marked inactive by the school.`;
 
     // 🔔 Push
-    if (parent.fcmToken) {
+    if (parent.fcmToken && parent.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
         {
@@ -1006,7 +1007,7 @@ async removeVanFromKids(kidIds: string[]) {
     const message = `Your child ${kidNames} has been removed from the van.`;
 
     // 🔔 FCM
-    if (parent.fcmToken) {
+    if (parent.fcmToken && parent.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
         {
@@ -1071,7 +1072,7 @@ async removeVanFromKids(kidIds: string[]) {
     const message = `Kids ${kidNames} have been removed from your van.`;
 
     // 🔔 FCM
-    if (driver.fcmToken) {
+    if (driver.fcmToken && driver.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,
         {

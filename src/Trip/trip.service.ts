@@ -203,7 +203,7 @@ const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId)
     const message = `${kid.fullname} has been picked by the van driver.`;
 
    
-    if (parent?.fcmToken) {
+    if (parent?.fcmToken && parent.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
         {
@@ -435,7 +435,7 @@ async endTrip(driverId, dto: EndTripDto) {
     const message = `Your child ${kidNames} has been safely dropped.`;
 
     // 🔔 Push Notification
-    if (parent.fcmToken) {
+    if (parent.fcmToken && parent.notificationToggle === true) {
       await this.firebaseAdminService.sendToDevice(
         parent.fcmToken,
         {

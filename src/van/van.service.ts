@@ -1003,7 +1003,7 @@ async updateDriverStatusByAdmin(
       {
         $set: { status },
       },
-    );
+    )
 
   console.log(result);
 
@@ -1019,10 +1019,11 @@ async updateDriverStatusByAdmin(
         fullname: 1,
         fcmToken: 1,
         status: 1,
+        notificationToggle: 1,
       },
     );
 
-  console.log(drivers);
+
 
  
   // 6️⃣ Send notification to each driver
@@ -1043,7 +1044,10 @@ async updateDriverStatusByAdmin(
     van.status = status;
     await van.save();
   }
+
+  console.log("hello wali")
     if (driver.fcmToken && driver.notificationToggle === true) {
+         console.log("wali", driver.fcmToken, driver.notificationToggle);
       await this.firebaseAdminService.sendToDevice(
         driver.fcmToken,
         {
@@ -1160,6 +1164,7 @@ async removeDriversFromSchool(
     {
       fullname: 1,
       fcmToken: 1,
+      notificationToggle: 1,
     },
   );
 

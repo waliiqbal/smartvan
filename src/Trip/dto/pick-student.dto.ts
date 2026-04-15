@@ -19,5 +19,5 @@ export class PickStudentDto {
   long?: number;
 
   @IsOptional()
-  time?: Date; // optional, service me default new Date() set hoga
+  time?: Date;
 }

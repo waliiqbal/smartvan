@@ -42,6 +42,34 @@ async pickStudent(
     return await this.tripService.endTrip(driverId,dto);
   }
 
+    @UseGuards(AuthGuard('jwt'))
+  @Post('endTripForDrop')
+  async endTripForDrop(@Body() dto: EndTripDto,  @Req() req: any,) {
+     const driverId = req.user.userId;
+    return await this.tripService.endTripForDrop(driverId,dto);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+@Post('pickStudentsFromSchool')
+async pickStudentsFromSchool(
+  @Body() dto: { tripId: string; kidId: string },
+  @Req() req: any,
+) {
+  const driverId = req.user.userId;
+
+  return this.tripService.pickStudentsFromSchool(driverId, dto);
+}
+
+ @UseGuards(AuthGuard('jwt'))
+@Post('dropStudentForHome')
+async dropStudentForHome(
+  @Body() dto: { tripId: string; kidId: string; lat: number; long: number },
+  @Req() req: any,
+) {
+  const driverId = req.user.userId;
+
+  return this.tripService.dropStudentForHome(driverId, dto);
+}
 
   @Get('getLocation')
   async getLocationsByDriver(@Body() dto: getLocationDto,  @Req() req: any,) {

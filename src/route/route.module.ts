@@ -7,6 +7,6 @@ import { routeController } from './route.controller';
   
   controllers: [routeController],
   providers: [RouteService],
-  exports: [RouteService] // agar kahin aur use karna ho to
+  exports: [RouteService] 
 })
 export class RouteModule {}

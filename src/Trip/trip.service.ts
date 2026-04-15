@@ -241,6 +241,120 @@ const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId)
   };
 }
 
+async dropStudentForHome(driverId: string, dto: { tripId: string; kidId: string; lat: number; long: number }) {
+
+  const driverObjectId = new Types.ObjectId(driverId);
+
+  // 1️⃣ Driver check
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
+
+  // 2️⃣ Van check
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) {
+    throw new BadRequestException('Van not assigned to this driver');
+  }
+
+  if (!van.schoolId) {
+    throw new BadRequestException('Van is not associated with any school');
+  }
+
+  if (driver.schoolId !== van.schoolId) {
+    throw new BadRequestException('Driver and Van school do not match');
+  }
+
+  if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
+
+  // 3️⃣ Trip check
+  const trip = await this.databaseService.repositories.TripModel.findById(dto.tripId);
+  if (!trip) {
+    throw new NotFoundException('Trip not found');
+  }
+
+  if (trip.vanId !== van._id.toString()) {
+    throw new BadRequestException("Van does not belong to this trip");
+  }
+
+  // 4️⃣ Kid find in trip.kids array
+  const kidIndex = trip.kids.findIndex(
+    (k) => k.kidId.toString() === dto.kidId
+  );
+
+  if (kidIndex === -1) {
+    throw new BadRequestException("Kid not found in this trip");
+  }
+
+  // 5️⃣ Update kid data
+  trip.kids[kidIndex].status = "dropped"; // ✅ status update
+  trip.kids[kidIndex].lat = dto.lat;      // ✅ location add
+  trip.kids[kidIndex].long = dto.long;
+  trip.kids[kidIndex].time = new Date();
+
+  // 6️⃣ Add in locations array
+  trip.locations.push({
+    lat: dto.lat,
+    long: dto.long,
+    time: new Date(),
+  });
+
+  await trip.save();
+
+  // 7️⃣ Notification (optional but recommended)
+  const kid = await this.databaseService.repositories.KidModel.findById(dto.kidId);
+
+  if (kid?.parentId) {
+
+    const parent = await this.databaseService.repositories.parentModel.findOne({
+      _id: kid.parentId,
+      isDelete: false,
+    });
+
+    const title = "Kid Dropped";
+    const message = `${kid.fullname} has been dropped at home.`;
+
+    // 🔔 push
+    if (parent?.fcmToken && parent.notificationToggle === true) {
+      await this.firebaseAdminService.sendToDevice(
+        parent.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+          data: {
+            kidId: kid._id.toString(),
+            status: 'dropped',
+            time: new Date().toISOString(),
+          }
+        }
+      );
+    }
+
+    // 💾 save notification
+    await this.databaseService.repositories.notificationModel.create({
+      type: "driver",
+      schoolId: van.schoolId,
+      infoType: "Information",
+      parentId: kid.parentId.toString(),
+      VanId: van._id.toString(),
+      title: title,
+      message: message,
+      actionType: "DROPPED",
+      status: "sent",
+      date: new Date(),
+    });
+  }
+
+  return {
+    message: "Kid dropped successfully",
+    data: trip,
+  };
+}
+
 // async endTrip(driverId, dto: EndTripDto) {
 //   const { tripId, lat, long, time } = dto;
 //   const driverObjectId = new Types.ObjectId(driverId);
@@ -471,6 +585,304 @@ async endTrip(driverId, dto: EndTripDto) {
 
   return {
     message: "Trip ended, notifications sent & saved",
+    data: trip,
+  };
+}
+
+// async startTrip(driverId: string, createTripDto: CreateTripDto) {
+
+//   const driverObjectId = new Types.ObjectId(driverId);
+
+//   // 1️⃣ Driver check
+//   const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+//   if (!driver) {
+//     throw new UnauthorizedException('Driver not found');
+//   }
+
+//   // 2️⃣ Van check
+//   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+//   if (!van) {
+//     throw new BadRequestException('Van not assigned to this driver');
+//   }
+
+//   if (!van.schoolId) {
+//     throw new BadRequestException('Van is not associated with any school');
+//   }
+
+//   if (driver.schoolId !== van.schoolId) {
+//     throw new BadRequestException('Driver and Van school do not match');
+//   }
+
+//   if (van.status !== "active") {
+//     throw new BadRequestException('Van is not active');
+//   }
+
+//   // 3️⃣ Route check
+//   if (!createTripDto.routeId) {
+//     throw new BadRequestException('Route ID is required to start a trip');
+//   }
+
+//   const route = await this.databaseService.repositories.routeModel.findById(createTripDto.routeId);
+
+//   if (!route) {
+//     throw new BadRequestException('Route not found');
+//   }
+
+//   if (!route.startTime) {
+//     throw new BadRequestException('Route start time not defined');
+//   }
+
+//   // 4️⃣ ⏰ Time validation (1 hour window)
+//   const now = new Date();
+
+//   const routeTime = new Date(route.startTime);
+
+//   // 👉 Aaj ki date + route ka time
+//   const todayRouteTime = new Date();
+//   todayRouteTime.setHours(
+//     routeTime.getHours(),
+//     routeTime.getMinutes(),
+//     0,
+//     0
+//   );
+
+//   const oneHourLater = new Date(todayRouteTime.getTime() + 60 * 60 * 1000);
+
+//   if (now < todayRouteTime) {
+//     console.log (todayRouteTime, now, oneHourLater)
+//     throw new BadRequestException('Trip cannot start before scheduled time');
+//   }
+
+  
+
+//   if (now > oneHourLater) {
+//     throw new BadRequestException('Trip start window expired (1 hour limit)');
+//   }
+
+//   // 5️⃣ Duplicate trip check (same day)
+//   const today = new Date();
+//   today.setHours(0, 0, 0, 0);
+
+//   const tomorrow = new Date(today);
+//   tomorrow.setDate(tomorrow.getDate() + 1);
+
+//   const getTrip = await this.databaseService.repositories.TripModel.findOne({
+//     routeId: createTripDto.routeId,
+//     type: createTripDto.type,
+//     createdAt: {
+//       $gte: today,
+//       $lt: tomorrow
+//     }
+//   });
+
+//   if (getTrip) {
+//     throw new BadRequestException('This scheduled trip already started today');
+//   }
+
+//   // 6️⃣ Create trip
+//   const newTrip = new this.databaseService.repositories.TripModel({
+//     driverId: driverId,
+//     vanId: van._id.toString(),
+//     schoolId: van.schoolId,
+//     routeId: createTripDto.routeId,
+
+//     type: createTripDto.type || undefined,
+
+//     tripStart: {
+//       startTime: now,
+//       lat: createTripDto.lat,
+//       long: createTripDto.long,
+//     },
+
+//     status: 'ongoing',
+
+//     kids: [],
+
+//     locations: (createTripDto.lat && createTripDto.long)
+//       ? [{
+//           lat: createTripDto.lat,
+//           long: createTripDto.long,
+//           time: now,
+//         }]
+//       : [],
+//   });
+
+//   const savedTrip = await newTrip.save();
+
+//   return {
+//     message: "Trip started successfully",
+//     data: savedTrip.toObject(),
+//   };
+// }
+
+async pickStudentsFromSchool(
+  driverId: string,
+  dto: { tripId: string; kidId: string }
+) {
+
+  const driverObjectId = new Types.ObjectId(driverId);
+
+  // 1️⃣ Driver check
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
+
+  // 2️⃣ Van check
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) {
+    throw new BadRequestException('Van not assigned to this driver');
+  }
+
+  if (!van.schoolId) {
+    throw new BadRequestException('Van is not associated with any school');
+  }
+
+  if (driver.schoolId !== van.schoolId) {
+    throw new BadRequestException('Driver and Van school do not match');
+  }
+
+  if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
+
+  // 3️⃣ Trip check
+  const trip = await this.databaseService.repositories.TripModel.findById(dto.tripId);
+  if (!trip) {
+    throw new NotFoundException('Trip not found');
+  }
+
+  if (trip.vanId !== van._id.toString()) {
+    throw new BadRequestException("Van does not belong to this trip");
+  }
+
+  if (trip.type !== "drop") {
+    throw new BadRequestException("This API is only for drop trips");
+  }
+
+  // 4️⃣ Single Kid fetch
+  const kid = await this.databaseService.repositories.KidModel.findOne({
+    _id: new Types.ObjectId(dto.kidId),
+    status: "active"
+  });
+
+  if (!kid) {
+    throw new BadRequestException("Kid not found or inactive");
+  }
+
+  // 5️⃣ Add kid in trip
+  const kidEntry = {
+    kidId: kid._id.toString(),
+    time: new Date(),
+    status: 'picked' as const
+  };
+
+  trip.kids.push(kidEntry);
+
+  await trip.save();
+
+  // 6️⃣ Notification
+  if (kid.parentId) {
+
+    const parent = await this.databaseService.repositories.parentModel.findOne({
+      _id: kid.parentId,
+      isDelete: false,
+    });
+
+    const title = "Kid Picked from School";
+    const message = `${kid.fullname} has been picked from school.`;
+
+    // 🔔 Push Notification
+    if (parent?.fcmToken && parent.notificationToggle === true) {
+      await this.firebaseAdminService.sendToDevice(
+        parent.fcmToken,
+        {
+          notification: {
+            title,
+            body: message,
+          },
+          data: {
+            kidId: kid._id.toString(),
+            status: 'picked_from_school',
+            time: new Date().toISOString(),
+          }
+        }
+      );
+    }
+
+    // 💾 Save Notification
+    await this.databaseService.repositories.notificationModel.create({
+      type: "driver",
+      schoolId: van.schoolId,
+      infoType: "Information",
+      parentId: kid.parentId.toString(),
+      VanId: van._id.toString(),
+      title: title,
+      message: message,
+      actionType: "PICKED_FROM_SCHOOL",
+      status: "sent",
+      date: new Date(),
+    });
+  }
+
+  return {
+    message: "Kid picked from school & added to trip",
+    data: trip
+  };
+}
+
+async endTripForDrop(driverId, dto: EndTripDto) {
+  const { tripId, lat, long, time } = dto;
+  const driverObjectId = new Types.ObjectId(driverId);
+
+  // 1️⃣ Driver check
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) throw new UnauthorizedException('Driver not found');
+
+  // 2️⃣ Van check
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) throw new BadRequestException('Van not assigned to this driver');
+
+  if (!van.schoolId) {
+    throw new BadRequestException('Van is not associated with any school');
+  }
+
+  if (driver.schoolId !== van.schoolId) {
+    throw new BadRequestException('Driver and Van school do not match');
+  }
+
+  // 3️⃣ Trip check
+  const trip = await this.databaseService.repositories.TripModel.findById(tripId);
+  if (!trip) throw new NotFoundException('Trip not found');
+
+  if (trip.vanId !== van._id.toString()) {
+    throw new BadRequestException("Van does not belong to this trip");
+  }
+
+  // ✅ Only DROP trip allowed
+  if (trip.type !== "drop") {
+    throw new BadRequestException("This API is only for drop trips");
+  }
+
+  // ✅ Already ended check
+  if (trip.status === "end") {
+    throw new BadRequestException("Trip already ended");
+  }
+
+  // ❌ NO kids update
+
+  // 4️⃣ End trip only
+  trip.status = 'end';
+  trip.tripEnd = {
+    endTime: time ? new Date(time) : new Date(),
+    lat,
+    long,
+  };
+
+  await trip.save();
+
+  return {
+    message: "Drop trip ended successfully",
     data: trip,
   };
 }

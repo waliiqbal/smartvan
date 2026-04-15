@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { IsOptional, IsString, IsBoolean, IsObject } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsObject, IsDateString } from 'class-validator';
 
 export class CreateRouteDto {
 
@@ -16,8 +16,8 @@ export class CreateRouteDto {
   title?: string;
 
   @IsOptional()
-  @IsString()
-  startTime?: string; // example: "07:30 AM"
+  @IsDateString()
+  startTime?: string;
 
   @IsOptional()
   @IsString()

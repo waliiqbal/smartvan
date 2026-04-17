@@ -1185,8 +1185,19 @@ async removeDriversFromSchool(
       van.schoolId = null;
       van.status = 'inActive';
       driver.status = 'inActive';
+      driver.schoolId = null;
       await van.save();
+      await driver.save();
+
     } 
+
+    else {
+      driver.status = 'inActive';
+      driver.schoolId = null;
+      van.driverId = null;
+      await van.save();
+      await driver.save();
+}
 
    
     if (driver.fcmToken && driver.notificationToggle === true) {

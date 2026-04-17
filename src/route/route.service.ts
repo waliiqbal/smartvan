@@ -191,6 +191,10 @@ async getAssignedTripByDriver(driverId: string) {
     throw new BadRequestException('Driver account is deleted');
   }
 
+  if (driver.status !== 'active') {
+    throw new BadRequestException('Driver account is not active');
+  }
+
   // Step 2: Van find karo driverId se
   const van = await this.databaseService.repositories.VanModel.findOne(
     { driverId: new Types.ObjectId(driverId) },

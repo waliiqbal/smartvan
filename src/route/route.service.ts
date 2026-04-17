@@ -181,7 +181,6 @@ async getAssignedTripByDriver(driverId: string) {
 
   const driver = await this.databaseService.repositories.driverModel.findById(
     new Types.ObjectId(driverId),
-    { fullname: 1 }
   );
   if (!driver) {
     throw new BadRequestException('Driver not found');

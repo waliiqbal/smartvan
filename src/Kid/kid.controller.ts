@@ -164,6 +164,20 @@ async deleteKid(
   const parentId = req.user.userId; // token se parentId
   return this.KidService.deleteKidByIdAndParent(parentId, kidId);
 }
+@UseGuards(AuthGuard('jwt'))
+@Post('assignVanByParent')
+async assignVan(
+  @Req() req: any,
+  @Body('kidId') kidId: string,
+  @Body('vanId') vanId: string,
+) {
+  const parentId = req.user.userId; // token se parentId
+
+  return this.KidService.assignVanByParent(parentId, {
+    kidId,
+    vanId,
+  });
+}
 
 
 

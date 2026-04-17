@@ -1993,4 +1993,57 @@ async deleteKidByIdAndParent(parentId: string, kidId: string) {
   }
 }
 
+
+
+async assignVanByParent(parentId: string, dto: { kidId: string; vanId: string }) {
+
+  const { kidId, vanId } = dto;
+
+  // 🔹 1️⃣ Parent check
+  const parent = await this.databaseService.repositories.parentModel.findById(parentId);
+  if (!parent) {
+    throw new BadRequestException('Parent not found');
+  }
+
+  // 🔹 2️⃣ Kid check
+  const kid = await this.databaseService.repositories.KidModel.findById(kidId);
+  if (!kid) {
+    throw new BadRequestException('Kid not found');
+  }
+
+
+
+
+  // 🔹 4️⃣ Check if already assigned
+  if (kid.VanId) {
+    throw new BadRequestException(
+      'Kid already has a van assigned. Remove it first.'
+    );
+  }
+
+  // 🔹 5️⃣ Van check
+  const van = await this.databaseService.repositories.VanModel.findById(vanId);
+  if (!van) {
+    throw new NotFoundException('Van not found');
+  }
+
+  // 🔹 6️⃣ Van must be active
+  if (van.status !== 'active') {
+    throw new BadRequestException('Van is not active');
+  }
+
+  // 🔹 7️⃣ Assign van to kid
+  const updatedKid = await this.databaseService.repositories.KidModel.findByIdAndUpdate(
+    kidId,
+    {
+      $set: { VanId: vanId },
+    },
+    { new: true },
+  );
+
+  return {
+    message: 'Van assigned successfully to kid',
+    data: updatedKid,
+  };
+}
 }

@@ -2012,9 +2012,10 @@ async assignVanByParent(parentId: string, dto: { kidId: string; vanId: string })
   }
 
 
+  console.log("walii")
 
 
-  // 🔹 4️⃣ Check if already assigned
+ 
   if (kid.VanId) {
     throw new BadRequestException(
       'Kid already has a van assigned. Remove it first.'

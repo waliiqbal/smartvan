@@ -97,18 +97,17 @@ export class alertService {
     _id: { $in: parentIds },
     userType: "parent",
     isDelete: false,
-    fcmToken: { $ne: null },
   });
 
 
 
-  // ⭐ PARENTS KE FCM TOKEN ARRAY ME ADD
-  const parentFCM = parents.map((p) => p.fcmToken);
- 
+const parentFCM = parents
+  .filter((p) => p?.fcmToken && p.notificationToggle === true)
+  .map((p) => p.fcmToken);
 
-  targetUsersFCM.push(...parentFCM);
-}
+targetUsersFCM.push(...parentFCM);
 
+  }
   
    
     else if (recipientType === "ALL_DRIVERS") {
@@ -124,11 +123,12 @@ export class alertService {
         _id: { $in: driverIds },
         userType: "driver",
         isDelete: false,
-        fcmToken: { $ne: null },
       });
   
-      targetUsersFCM = drivers.map((d) => d.fcmToken);
-    }
+      targetUsersFCM = drivers
+    .filter((d) => d?.fcmToken && d.notificationToggle === true)
+    .map((d) => d.fcmToken);
+}
   
     // 4️⃣ ALL_PARENTS → Fetch all parents of the school
     else if (recipientType === "ALL_PARENTS") {
@@ -143,11 +143,11 @@ export class alertService {
         _id: { $in: parentIds },
         userType: "parent",
         isDelete: false,
-        fcmToken: { $ne: null },
       });
   
-      targetUsersFCM = parents.map((p) => p.fcmToken);
-    
+     targetUsersFCM = parents
+  .filter((p) => p?.fcmToken && p.notificationToggle === true)
+  .map((p) => p.fcmToken);
     }
   
    

@@ -29,29 +29,40 @@ async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
     throw new UnauthorizedException('Only parent can add kids');
   }
 
-  // Step 2: Get parent by userId
+  // Step 2: Get parent
   const Parent = await this.databaseService.repositories.parentModel.findById(userId);
+
   if (!Parent) {
     throw new UnauthorizedException('Parent not found');
   }
 
-    // ✅ Step 3: Check Van (NEW LOGIC)
-  if (CreateKidDto.VanId) {
-    
-    const van = await this.databaseService.repositories.VanModel.findById(CreateKidDto.VanId);
+  let driver = null;
+  let van = null;
 
-    // ❌ Van not found
+  // Step 3: Van validation (if provided)
+  if (CreateKidDto.VanId) {
+    van = await this.databaseService.repositories.VanModel.findById(
+      CreateKidDto.VanId,
+    );
+
     if (!van) {
       throw new NotFoundException('Van not found');
     }
 
-    // ❌ Van not active
     if (van.status !== 'active') {
       throw new BadRequestException('Van is not active, cannot assign kid');
     }
+
+    // Step 4: Get driver of van
+    if (van.driverId) {
+      driver = await this.databaseService.repositories.driverModel.findOne({
+        _id: van.driverId,
+        isDelete: false,
+      });
+    }
   }
 
-
+  // Step 5: Create kid
   const newKid = new this.databaseService.repositories.KidModel({
     ...CreateKidDto,
     parentId: Parent._id,
@@ -59,13 +70,42 @@ async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
 
   const savedKid = await newKid.save();
 
-  // Step 4: Wrap response in "data"
+  // Step 6: Send notification ONLY if driver exists
+  if (driver) {
+    const title = 'New Kid Assigned';
+    const message = `A new kid has been assigned to your van ${van.carNumber}`;
+
+    // 🔔 Push notification
+    if (driver.fcmToken && driver.notificationToggle === true) {
+      await this.firebaseAdminService.sendToDevice(driver.fcmToken, {
+        notification: {
+          title,
+          body: message,
+        },
+      });
+    }
+
+    // 💾 Save notification
+    await this.databaseService.repositories.notificationModel.create({
+      type: 'driver',
+      driverId: driver._id.toString(),
+      schoolId: van.schoolId,
+
+      infoType: 'Information',
+      title,
+      message,
+      actionType: 'KID_ASSIGNED_TO_VAN',
+      status: 'sent',
+      date: new Date(),
+    });
+  }
+
+  // Step 7: Response
   return {
     message: 'Kid added successfully',
     data: savedKid,
   };
 }
-
 async getKids(userId: string, userType: string) {
 
 

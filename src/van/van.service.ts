@@ -581,6 +581,12 @@ async removeDriverFromVan(vanId: string , adminId: string) {
     throw new BadRequestException('Cannot remove driver from own van');
   }
 
+    const driverId = van.driverId; // 🔥 save before removing
+
+  if (!driverId) {
+    throw new BadRequestException('No driver assigned to this van');
+  }
+
   // 1. Update van → driverId null
   const result = await this.databaseService.repositories.VanModel.updateOne(
     { _id: vanObjectId },
@@ -592,10 +598,45 @@ async removeDriverFromVan(vanId: string , adminId: string) {
     { _id: vanObjectId }
   );
 
-  // 3. Response
+    const driver = await this.databaseService.repositories.driverModel.findOne({
+    _id: driverId,
+    schoolId: school._id.toString(),
+    isDelete: false,
+  });
+
+    if (driver) {
+    const title = 'Van Unassigned';
+    const message = `You have been removed from van ${van.carNumber}`;
+
+    // 🔔 Push notification
+    if (driver.fcmToken && driver.notificationToggle === true) {
+      await this.firebaseAdminService.sendToDevice(driver.fcmToken, {
+        notification: {
+          title,
+          body: message,
+        },
+      });
+    }
+
+    // 💾 Save notification (IMPORTANT CHANGE HERE)
+    await this.databaseService.repositories.notificationModel.create({
+      type: 'admin',
+      schoolId: school._id.toString(),
+
+      driverId: driverId,   // ✅ ONLY DRIVER ID (NO VAN ID)
+
+      infoType: 'Information',
+      title,
+      message,
+      actionType: 'DRIVER_REMOVED_FROM_VAN',
+      status: 'sent',
+      date: new Date(),
+    });
+  }
+
+  // 8️⃣ Response
   return {
     message: 'Driver removed from van successfully',
-    modifiedCount: result.modifiedCount,
     van: updatedVan,
   };
 }

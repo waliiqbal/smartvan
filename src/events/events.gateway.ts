@@ -111,32 +111,119 @@ afterInit(server: Server) {
   /**
    * Driver updates location → emit to room
    */
-  @SubscribeMessage('updateLocation')
+//   @SubscribeMessage('updateLocation')
+// async updateLocation(
+//   @MessageBody() data: { tripId: string; location: { lat: number; long: number } },
+//   @ConnectedSocket() socket: any,
+// ) {
+//   const room = String(data.tripId).trim();
+
+//   // 1) Who is in the room before emit?
+//   const before = await this.server.in(room).allSockets(); // Set<string> of socket ids
+//   console.log(`[location] will emit to room=${room}, listeners=${before.size}, listenersIds=${[...before].join(',')}`);
+
+//   // (Optional) Auto-join the sender if not in room (useful for your own testing)
+//   if (!socket.rooms.has(room)) {
+//     console.log(`[location] sender not in room ${room}, joining temporarily`);
+//     await socket.join(room);
+//   }
+
+//   // 2) Write to DB
+//   const tripObjectId = new Types.ObjectId(room);
+//   await this.databaseService.repositories.TripModel.findByIdAndUpdate(
+//     tripObjectId,
+//     { $push: { locations: { lat: data.location.lat, long: data.location.long, time: new Date() } } },
+//     { new: false },
+//   );
+
+//   // 3) Emit to the room
+//   const userId =
+//     socket?.data?.user?.userId ||
+//     socket?.decoded_token?.userId ||
+//     socket?.decoded_token?.sub ||
+//     'unknown';
+
+//   this.server.to(room).emit('locationUpdated', {
+//     userId,
+//     location: data.location,
+//     at: new Date().toISOString(),
+//   });
+
+//   // 4) Sanity log after emit (count should be same; helps you see zero listeners quickly)
+//   const after = await this.server.in(room).allSockets();
+//   console.log(`[location] emitted to room=${room}, listeners(now)=${after.size}`);
+// }
+
+@SubscribeMessage('updateLocation')
 async updateLocation(
   @MessageBody() data: { tripId: string; location: { lat: number; long: number } },
   @ConnectedSocket() socket: any,
 ) {
   const room = String(data.tripId).trim();
 
-  // 1) Who is in the room before emit?
-  const before = await this.server.in(room).allSockets(); // Set<string> of socket ids
-  console.log(`[location] will emit to room=${room}, listeners=${before.size}, listenersIds=${[...before].join(',')}`);
+  // 1) Check listeners
+  const before = await this.server.in(room).allSockets();
+  console.log(`[location] will emit to room=${room}, listeners=${before.size}`);
 
-  // (Optional) Auto-join the sender if not in room (useful for your own testing)
   if (!socket.rooms.has(room)) {
-    console.log(`[location] sender not in room ${room}, joining temporarily`);
     await socket.join(room);
   }
 
-  // 2) Write to DB
   const tripObjectId = new Types.ObjectId(room);
+
+  // 🔥 STEP 1: Last location nikalo
+  const trip = await this.databaseService.repositories.TripModel.findById(tripObjectId);
+  const last = trip?.locations?.[trip.locations.length - 1];
+
+  const current = data.location;
+
+  // 🔥 STEP 2: INVALID location skip (extra safety)
+  if (
+    current.lat < 20 || current.lat > 30 ||
+    current.long < 60 || current.long > 70
+  ) {
+    console.log("❌ Invalid location skipped");
+    return;
+  }
+
+  // 🔥 STEP 3: Duplicate / noise filter
+  if (last) {
+    const latDiff = Math.abs(last.lat - current.lat);
+    const lngDiff = Math.abs(last.long - current.long);
+
+    // very small movement ignore (noise)
+    if (latDiff < 0.00005 && lngDiff < 0.00005) {
+      console.log("⚠️ Noise/duplicate skipped");
+      return;
+    }
+  }
+
+  // 🔥 STEP 4: SMOOTHING (main part)
+let smoothLocation = current;
+
+if (last) {
+  smoothLocation = {
+    lat: last.lat * 0.7 + current.lat * 0.3,
+    long: last.long * 0.7 + current.long * 0.3,
+  };
+}
+
+  // 🔥 STEP 5: Save CLEAN data
   await this.databaseService.repositories.TripModel.findByIdAndUpdate(
     tripObjectId,
-    { $push: { locations: { lat: data.location.lat, long: data.location.long, time: new Date() } } },
+    {
+      $push: {
+        locations: {
+          lat: smoothLocation.lat,
+          long: smoothLocation.long,
+          time: new Date(),
+        },
+      },
+    },
     { new: false },
   );
 
-  // 3) Emit to the room
+  // 🔥 STEP 6: Emit CLEAN + SMOOTH data
   const userId =
     socket?.data?.user?.userId ||
     socket?.decoded_token?.userId ||
@@ -145,13 +232,12 @@ async updateLocation(
 
   this.server.to(room).emit('locationUpdated', {
     userId,
-    location: data.location,
+    location: smoothLocation,
     at: new Date().toISOString(),
   });
 
-  // 4) Sanity log after emit (count should be same; helps you see zero listeners quickly)
   const after = await this.server.in(room).allSockets();
-  console.log(`[location] emitted to room=${room}, listeners(now)=${after.size}`);
+  console.log(`[location] emitted to room=${room}, listeners=${after.size}`);
 }
 
 

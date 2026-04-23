@@ -87,7 +87,7 @@ async addKid(CreateKidDto: CreateKidDto, userId: string, userType: string) {
 
     // 💾 Save notification
     await this.databaseService.repositories.notificationModel.create({
-      type: 'driver',
+      type: 'admin',
       driverId: driver._id.toString(),
       schoolId: van.schoolId,
 

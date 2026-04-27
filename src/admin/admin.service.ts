@@ -185,7 +185,7 @@ async getAllSchoolsBySuperAdmin(page = 1, limit = 10, search?: string) {
   // ✅ Total count
   const total = await this.databaseService.repositories.SchoolModel.countDocuments(filter);
 
-  // ✅ Fetch schools with limit & skip
+  // ✅ Fetch schools
   const schools = await this.databaseService.repositories.SchoolModel.find(
     filter,
     {
@@ -200,11 +200,25 @@ async getAllSchoolsBySuperAdmin(page = 1, limit = 10, search?: string) {
     .skip(skip)
     .limit(limit);
 
-  // ✅ Har school ke kids count (parallel with Promise.all)
+  // ✅ Counts (parallel)
   const data = await Promise.all(
     schools.map(async (school) => {
+
+      const schoolId = school._id.toString();
+
+      // 🔹 Kids count
       const kidsCount = await this.databaseService.repositories.KidModel.countDocuments({
-        schoolId: school._id.toString(), // string compare
+        schoolId: schoolId,
+      });
+
+      // 🔹 Vans count
+      const vansCount = await this.databaseService.repositories.VanModel.countDocuments({
+        schoolId: schoolId,
+      });
+
+      // 🔹 Routes count
+      const routesCount = await this.databaseService.repositories.routeModel.countDocuments({
+        schoolId: schoolId,
       });
 
       return {
@@ -215,7 +229,10 @@ async getAllSchoolsBySuperAdmin(page = 1, limit = 10, search?: string) {
         routesLimit: school.allowedRoutes,
         contactNumber: school.contactNumber,
         status: school.status,
+
         totalKids: kidsCount,
+        totalVans: vansCount,
+        totalRoutes: routesCount,
       };
     })
   );
@@ -232,7 +249,6 @@ async getAllSchoolsBySuperAdmin(page = 1, limit = 10, search?: string) {
     },
   };
 }
-
 
 async resendOtpForResetPassword(email: string) {
   try {
@@ -414,18 +430,49 @@ async getProfile(userId: string) {
 
 async getallschool() {
 
+  // 1️⃣ Sare schools nikaalo
   const schools = await this.databaseService.repositories.SchoolModel
-      .find()
-      .sort({ _id: -1 }) 
-      .lean();
+    .find()
+    .sort({ _id: -1 })
+    .lean();
 
-      
-    return {
-      message: 'All school fetched successfully',
-      data: schools,
-    }; 
+  // 2️⃣ Har school par loop chalao
+  const updatedSchools = [];
+
+  for (let school of schools) {
+
+    const schoolId = school._id;
+
+    // 3️⃣ Vans count
+    const totalVans = await this.databaseService.repositories.VanModel.countDocuments({
+      schoolId: schoolId,
+    });
+
+    // 4️⃣ Kids count
+    const totalKids = await this.databaseService.repositories.KidModel.countDocuments({
+      schoolId: schoolId,
+    });
+
+    // 5️⃣ Routes count
+    const totalRoutes = await this.databaseService.repositories.routeModel.countDocuments({
+      schoolId: schoolId,
+    });
+
+    // 6️⃣ School object me counts add karo
+    updatedSchools.push({
+      ...school,
+      totalVans,
+      totalKids,
+      totalRoutes,
+    });
   }
 
+  // 7️⃣ Final response
+  return {
+    message: 'All school fetched successfully',
+    data: updatedSchools,
+  };
+}
   async addKid(AddStudentDto: AddStudentDto, AdminId: string, parentEmail: string) {
 
 const adminObjectId = new Types.ObjectId(AdminId);

@@ -229,6 +229,7 @@ async getAllSchoolsBySuperAdmin(page = 1, limit = 10, search?: string) {
         routesLimit: school.allowedRoutes,
         contactNumber: school.contactNumber,
         status: school.status,
+        image: school.schoolImage,
 
         totalKids: kidsCount,
         totalVans: vansCount,

@@ -26,101 +26,101 @@ export class TripService {
 
 
 
-async startTrip(driverId: string, createTripDto: CreateTripDto) {
+// async startTrip(driverId: string, createTripDto: CreateTripDto) {
 
-  const driverObjectId = new Types.ObjectId(driverId);
-  console.log(driverObjectId)
+//   const driverObjectId = new Types.ObjectId(driverId);
+//   console.log(driverObjectId)
   
-  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
-  if (!driver) {
-    throw new UnauthorizedException('Driver not found');
-  }
+//   const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+//   if (!driver) {
+//     throw new UnauthorizedException('Driver not found');
+//   }
 
-
-  
-
-
- const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
-  if (!van) {
-    throw new BadRequestException('Van not assigned to this driver');
-  }
 
   
 
-  const schoolId = van.schoolId;
-  
-  if (!schoolId) {  
-    throw new BadRequestException('Van is not associated with any school');
-  }
-  
-   if (driver.schoolId !== van.schoolId) {
-    throw new BadRequestException('Driver and Van school do not match');
-  }
 
-   if (van.status !== "active") {
-    throw new BadRequestException('Van is not active');
-  }
+//  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+//   if (!van) {
+//     throw new BadRequestException('Van not assigned to this driver');
+//   }
+
+  
+
+//   const schoolId = van.schoolId;
+  
+//   if (!schoolId) {  
+//     throw new BadRequestException('Van is not associated with any school');
+//   }
+  
+//    if (driver.schoolId !== van.schoolId) {
+//     throw new BadRequestException('Driver and Van school do not match');
+//   }
+
+//    if (van.status !== "active") {
+//     throw new BadRequestException('Van is not active');
+//   }
    
 
-  if (!createTripDto.routeId) {
-    throw new BadRequestException('Route ID is required to start a trip');
-  }
+//   if (!createTripDto.routeId) {
+//     throw new BadRequestException('Route ID is required to start a trip');
+//   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+//   const today = new Date();
+//   today.setHours(0, 0, 0, 0);
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const getTrip = await this.databaseService.repositories.TripModel.findOne({ 
-    routeId: createTripDto.routeId, 
-    type: createTripDto.type,
-    createdAt: {
-    $gte: today,     
-    $lt: tomorrow   
-      } 
-    });
-    if(getTrip){
-      throw new BadRequestException('this schedule trip already started');
-    }
+//   const getTrip = await this.databaseService.repositories.TripModel.findOne({ 
+//     routeId: createTripDto.routeId, 
+//     type: createTripDto.type,
+//     createdAt: {
+//     $gte: today,     
+//     $lt: tomorrow   
+//       } 
+//     });
+//     if(getTrip){
+//       throw new BadRequestException('this schedule trip already started');
+//     }
   
 
-  const newTrip = new this.databaseService.repositories.TripModel({
-    driverId: driverId,
-    vanId: van._id.toString(),
-    schoolId: van.schoolId,
-    routeId: createTripDto.routeId,
+//   const newTrip = new this.databaseService.repositories.TripModel({
+//     driverId: driverId,
+//     vanId: van._id.toString(),
+//     schoolId: van.schoolId,
+//     routeId: createTripDto.routeId,
 
-    type: createTripDto.type || undefined,
+//     type: createTripDto.type || undefined,
    
 
-    tripStart: {
-      startTime: new Date(),
-      lat: createTripDto.lat,
-      long: createTripDto.long,
-    },
+//     tripStart: {
+//       startTime: new Date(),
+//       lat: createTripDto.lat,
+//       long: createTripDto.long,
+//     },
 
-    status: 'ongoing',
+//     status: 'ongoing',
 
-    kids: [],
+//     kids: [],
 
   
-    locations: (createTripDto.lat && createTripDto.long)
-      ? [{
-          lat: createTripDto.lat,
-          long: createTripDto.long,
-          time: new Date(), 
-        }]
-      : [],
-  });
+//     locations: (createTripDto.lat && createTripDto.long)
+//       ? [{
+//           lat: createTripDto.lat,
+//           long: createTripDto.long,
+//           time: new Date(), 
+//         }]
+//       : [],
+//   });
 
-  // 🔍 Save karo
-  const savedTrip = await newTrip.save();
+//   // 🔍 Save karo
+//   const savedTrip = await newTrip.save();
 
-  return {
-    data: savedTrip.toObject(),
-  };
-}
+//   return {
+//     data: savedTrip.toObject(),
+//   };
+// }
 
 
 async pickStudent(driverId, dto: PickStudentDto) {
@@ -589,131 +589,131 @@ async endTrip(driverId, dto: EndTripDto) {
   };
 }
 
-// async startTrip(driverId: string, createTripDto: CreateTripDto) {
+async startTrip(driverId: string, createTripDto: CreateTripDto) {
 
-//   const driverObjectId = new Types.ObjectId(driverId);
+  const driverObjectId = new Types.ObjectId(driverId);
 
-//   // 1️⃣ Driver check
-//   const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
-//   if (!driver) {
-//     throw new UnauthorizedException('Driver not found');
-//   }
+  // 1️⃣ Driver check
+  const driver = await this.databaseService.repositories.driverModel.findById(driverObjectId);
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found');
+  }
 
-//   // 2️⃣ Van check
-//   const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
-//   if (!van) {
-//     throw new BadRequestException('Van not assigned to this driver');
-//   }
+  // 2️⃣ Van check
+  const van = await this.databaseService.repositories.VanModel.findOne({ driverId: driverObjectId });
+  if (!van) {
+    throw new BadRequestException('Van not assigned to this driver');
+  }
 
-//   if (!van.schoolId) {
-//     throw new BadRequestException('Van is not associated with any school');
-//   }
+  if (!van.schoolId) {
+    throw new BadRequestException('Van is not associated with any school');
+  }
 
-//   if (driver.schoolId !== van.schoolId) {
-//     throw new BadRequestException('Driver and Van school do not match');
-//   }
+  if (driver.schoolId !== van.schoolId) {
+    throw new BadRequestException('Driver and Van school do not match');
+  }
 
-//   if (van.status !== "active") {
-//     throw new BadRequestException('Van is not active');
-//   }
+  if (van.status !== "active") {
+    throw new BadRequestException('Van is not active');
+  }
 
-//   // 3️⃣ Route check
-//   if (!createTripDto.routeId) {
-//     throw new BadRequestException('Route ID is required to start a trip');
-//   }
+  // 3️⃣ Route check
+  if (!createTripDto.routeId) {
+    throw new BadRequestException('Route ID is required to start a trip');
+  }
 
-//   const route = await this.databaseService.repositories.routeModel.findById(createTripDto.routeId);
+  const route = await this.databaseService.repositories.routeModel.findById(createTripDto.routeId);
 
-//   if (!route) {
-//     throw new BadRequestException('Route not found');
-//   }
+  if (!route) {
+    throw new BadRequestException('Route not found');
+  }
 
-//   if (!route.startTime) {
-//     throw new BadRequestException('Route start time not defined');
-//   }
+  if (!route.startTime) {
+    throw new BadRequestException('Route start time not defined');
+  }
 
-//   // 4️⃣ ⏰ Time validation (1 hour window)
-//   const now = new Date();
+  // 4️⃣ ⏰ Time validation (1 hour window)
+  const now = new Date();
 
-//   const routeTime = new Date(route.startTime);
+  const routeTime = new Date(route.startTime);
 
-//   // 👉 Aaj ki date + route ka time
-//   const todayRouteTime = new Date();
-//   todayRouteTime.setHours(
-//     routeTime.getHours(),
-//     routeTime.getMinutes(),
-//     0,
-//     0
-//   );
+  // 👉 Aaj ki date + route ka time
+  const todayRouteTime = new Date();
+  todayRouteTime.setHours(
+    routeTime.getHours(),
+    routeTime.getMinutes(),
+    0,
+    0
+  );
 
-//   const oneHourLater = new Date(todayRouteTime.getTime() + 60 * 60 * 1000);
+  const oneHourLater = new Date(todayRouteTime.getTime() + 60 * 60 * 1000);
 
-//   if (now < todayRouteTime) {
-//     console.log (todayRouteTime, now, oneHourLater)
-//     throw new BadRequestException('Trip cannot start before scheduled time');
-//   }
+  if (now < todayRouteTime) {
+    console.log (todayRouteTime, now, oneHourLater)
+    throw new BadRequestException('Trip cannot start before scheduled time');
+  }
 
   
 
-//   if (now > oneHourLater) {
-//     throw new BadRequestException('Trip start window expired (1 hour limit)');
-//   }
+  if (now > oneHourLater) {
+    throw new BadRequestException('Trip start window expired (1 hour limit)');
+  }
 
-//   // 5️⃣ Duplicate trip check (same day)
-//   const today = new Date();
-//   today.setHours(0, 0, 0, 0);
+  // 5️⃣ Duplicate trip check (same day)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-//   const tomorrow = new Date(today);
-//   tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
-//   const getTrip = await this.databaseService.repositories.TripModel.findOne({
-//     routeId: createTripDto.routeId,
-//     type: createTripDto.type,
-//     createdAt: {
-//       $gte: today,
-//       $lt: tomorrow
-//     }
-//   });
+  const getTrip = await this.databaseService.repositories.TripModel.findOne({
+    routeId: createTripDto.routeId,
+    type: createTripDto.type,
+    createdAt: {
+      $gte: today,
+      $lt: tomorrow
+    }
+  });
 
-//   if (getTrip) {
-//     throw new BadRequestException('This scheduled trip already started today');
-//   }
+  if (getTrip) {
+    throw new BadRequestException('This scheduled trip already started today');
+  }
 
-//   // 6️⃣ Create trip
-//   const newTrip = new this.databaseService.repositories.TripModel({
-//     driverId: driverId,
-//     vanId: van._id.toString(),
-//     schoolId: van.schoolId,
-//     routeId: createTripDto.routeId,
+  // 6️⃣ Create trip
+  const newTrip = new this.databaseService.repositories.TripModel({
+    driverId: driverId,
+    vanId: van._id.toString(),
+    schoolId: van.schoolId,
+    routeId: createTripDto.routeId,
 
-//     type: createTripDto.type || undefined,
+    type: createTripDto.type || undefined,
 
-//     tripStart: {
-//       startTime: now,
-//       lat: createTripDto.lat,
-//       long: createTripDto.long,
-//     },
+    tripStart: {
+      startTime: now,
+      lat: createTripDto.lat,
+      long: createTripDto.long,
+    },
 
-//     status: 'ongoing',
+    status: 'ongoing',
 
-//     kids: [],
+    kids: [],
 
-//     locations: (createTripDto.lat && createTripDto.long)
-//       ? [{
-//           lat: createTripDto.lat,
-//           long: createTripDto.long,
-//           time: now,
-//         }]
-//       : [],
-//   });
+    locations: (createTripDto.lat && createTripDto.long)
+      ? [{
+          lat: createTripDto.lat,
+          long: createTripDto.long,
+          time: now,
+        }]
+      : [],
+  });
 
-//   const savedTrip = await newTrip.save();
+  const savedTrip = await newTrip.save();
 
-//   return {
-//     message: "Trip started successfully",
-//     data: savedTrip.toObject(),
-//   };
-// }
+  return {
+    message: "Trip started successfully",
+    data: savedTrip.toObject(),
+  };
+}
 
 async pickStudentsFromSchool(
   driverId: string,

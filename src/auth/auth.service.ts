@@ -742,6 +742,7 @@ async deleteAccount(userId: string, userType: string) {
 
     if (user.isDelete === false || user.isDelete === undefined) {
   user.isDelete = true;
+  user.isVerified = false; // ✅ Account delete hone par verification hata do
   await user.save();
 };              
 

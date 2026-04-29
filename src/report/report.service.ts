@@ -398,6 +398,7 @@ async changeComplaintStatus(
         schoolId: schoolId,
         parentId: parent._id.toString(),
         infoType: "Information",
+         infoType2: "forParents",
         title,
         message,
         actionType: "COMPLAINT_STATUS_UPDATE",
@@ -406,6 +407,48 @@ async changeComplaintStatus(
       });
     }
   }
+
+  if (report.driverId && !report.parentId) {
+
+    const driver = await this.databaseService.repositories.driverModel.findOne({
+      _id: report.driverId,
+      isDelete: false,
+    });
+
+    if (driver && driver.isDelete !== true) {
+
+      const title = "Complaint Status Updated";
+
+      const message = `Your complaint status has been updated to ${newStatus}.`;
+
+      // 🔹 Push Notification
+      if (driver.fcmToken && driver.notificationToggle === true) {
+        await this.firebaseAdminService.sendToDevice(
+          driver.fcmToken,
+          {
+            notification: {
+              title,
+              body: message,
+            },
+          },
+        );
+      }
+
+      // 🔹 Save Notification in DB
+      await this.databaseService.repositories.notificationModel.create({
+        type: "admin",
+        schoolId: schoolId,
+        driverId: driver._id.toString(),
+        infoType: "Information",
+        title,
+        message,
+        actionType: "COMPLAINT_STATUS_UPDATE",
+        status: "sent",
+        date: new Date(),
+      });
+    }
+  }
+
 
 
 
@@ -553,6 +596,7 @@ async getDriverReports(
   // ✅ filter
   const filter: any = {
     driverId: driverId,
+     parentId: { $exists: false },
   };
 
   if (status) {
@@ -564,7 +608,10 @@ async getDriverReports(
 
   // ✅ reports fetch
   const reports = await this.databaseService.repositories.reportModel
-    .find(filter)
+    .find({
+    ...filter, // 👈 correct way
+  })
+
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);

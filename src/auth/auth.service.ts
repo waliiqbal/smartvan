@@ -359,6 +359,17 @@ async getProfile(userId: string, userType: string) {
 
 async socialLogin(authProvider: string, token: string, userType: string, userName: string, email: string, socialId: string, image: string, fcmToken: string) {
   try {
+
+  console.log("authProvider:", authProvider);
+  console.log("token:", token);
+  console.log("userType:", userType);
+  console.log("userName:", userName);
+  console.log("email:", email);
+  console.log("socialId:", socialId);
+  console.log("image:", image);
+  console.log("fcmToken:", fcmToken);
+
+
     if(!userType || !socialId){
        throw new UnauthorizedException('userType and socialId must be given');
     }

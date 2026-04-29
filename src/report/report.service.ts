@@ -4,12 +4,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { DatabaseService } from 'src/database/databaseservice';
 import { Types } from 'mongoose';
+import { FirebaseAdminService } from '../notification/firebase-admin.service';
 
 
 @Injectable()
 export class ReportService {
   constructor(
   private databaseService: DatabaseService,
+  private firebaseAdminService: FirebaseAdminService,
   ) {}
 
  async createReport(body: any, parentId: string) {
@@ -324,11 +326,16 @@ const typeFilter = typeof query.type === "string" ? query.type.trim() : "";
 
 
 
-async changeComplaintStatus(adminId: string, reportId: string, newStatus: string, adminRemarks?: string ) {
- 
+async changeComplaintStatus(
+  adminId: string,
+  reportId: string,
+  newStatus: string,
+  adminRemarks?: string,
+) {
+
   const adminObjectId = new Types.ObjectId(adminId);
 
-  
+  // ✅ School find
   const school = await this.databaseService.repositories.SchoolModel.findOne({
     admin: adminObjectId,
   });
@@ -339,7 +346,7 @@ async changeComplaintStatus(adminId: string, reportId: string, newStatus: string
 
   const schoolId = school._id.toString();
 
- 
+  // ✅ Report find
   const report = await this.databaseService.repositories.reportModel.findOne({
     _id: new Types.ObjectId(reportId),
     schoolId: schoolId,
@@ -349,15 +356,62 @@ async changeComplaintStatus(adminId: string, reportId: string, newStatus: string
     throw new BadRequestException('Report not found for this school');
   }
 
-
+  // ✅ Update status
   report.status = newStatus;
-  report.adminRemarks = adminRemarks
+  report.adminRemarks = adminRemarks;
 
   await report.save();
 
+  // =========================
+  // 🔔 NOTIFICATION PART START
+  // =========================
+
+  if (report.parentId) {
+
+    const parent = await this.databaseService.repositories.parentModel.findOne({
+      _id: report.parentId,
+      isDelete: false,
+    });
+
+    if (parent && parent.isDelete !== true) {
+
+      const title = "Complaint Status Updated";
+
+      const message = `Your complaint status has been updated to ${newStatus}.`;
+
+      // 🔹 Push Notification
+      if (parent.fcmToken && parent.notificationToggle === true) {
+        await this.firebaseAdminService.sendToDevice(
+          parent.fcmToken,
+          {
+            notification: {
+              title,
+              body: message,
+            },
+          },
+        );
+      }
+
+      // 🔹 Save Notification in DB
+      await this.databaseService.repositories.notificationModel.create({
+        type: "admin",
+        schoolId: schoolId,
+        parentId: parent._id.toString(),
+        infoType: "Information",
+        title,
+        message,
+        actionType: "COMPLAINT_STATUS_UPDATE",
+        status: "sent",
+        date: new Date(),
+      });
+    }
+  }
+
+
+
   return {
     message: 'Report status updated successfully',
-   data: report
+    data: report,
   };
 }
 
@@ -416,6 +470,254 @@ async addFaq(data: any) {
   }
 
 
+async getParentReports(
+  parentId: string,
+  page = 1,
+  limit = 10,
+  status?: string,
+) {
+  if (!parentId) {
+    throw new UnauthorizedException('Invalid parent token');
+  }
 
+  const skip = (page - 1) * limit;
+
+  // ✅ filter
+  const filter: any = {
+    parentId: parentId,
+  };
+
+  if (status) {
+    filter.status = status;
+  }
+
+  // ✅ total count
+  const total = await this.databaseService.repositories.reportModel.countDocuments(filter);
+
+  // ✅ reports fetch
+  const reports = await this.databaseService.repositories.reportModel
+    .find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  // ✅ loop + attach kid & parent name
+  const finalData = [];
+
+  for (let report of reports) {
+    // 🔹 kid find
+    const kid = await this.databaseService.repositories.KidModel.findById(report.kidId);
+
+    let kidName = null;
+    let parentName = null;
+
+    if (kid) {
+      kidName = kid.fullname;
+
+      // 🔹 parent find
+      const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId);
+
+      if (parent) {
+        parentName = parent.fullname;
+      }
+    }
+
+    finalData.push({
+      ...report.toObject(),
+      kidName,
+      parentName,
+    });
+  }
+
+  return {
+    message: 'Reports fetched successfully',
+    total,
+    page,
+    limit,
+    data: finalData,
+  };
+}
+
+async getDriverReports(
+  driverId: string,
+  page = 1,
+  limit = 10,
+  status?: string,
+) {
+  if (!driverId) {
+    throw new UnauthorizedException('Invalid driver token');
+  }
+
+  const skip = (page - 1) * limit;
+
+  // ✅ filter
+  const filter: any = {
+    driverId: driverId,
+  };
+
+  if (status) {
+    filter.status = status;
+  }
+
+  // ✅ total count
+  const total = await this.databaseService.repositories.reportModel.countDocuments(filter);
+
+  // ✅ reports fetch
+  const reports = await this.databaseService.repositories.reportModel
+    .find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  const finalData = [];
+
+  for (let report of reports) {
+
+    let driverName = null;
+    let carNumber = null;
+
+    // 🔹 driver find
+    const driver = await this.databaseService.repositories.driverModel.findById(report.driverId);
+
+    if (driver) {
+      driverName = driver.fullname;
+    }
+
+    const driverObjectId = new Types.ObjectId(report.driverId);
+    // 🔹 van find (driverId se)
+    const van = await this.databaseService.repositories.VanModel.findOne({
+      driverId: driverObjectId,
+    });
+
+    if (van) {
+      carNumber = van.carNumber;
+    }
+
+    finalData.push({
+      ...report.toObject(),
+      driverName,
+      carNumber,
+    });
+  }
+
+  return {
+    message: 'Driver reports fetched successfully',
+    total,
+    page,
+    limit,
+    data: finalData,
+  };
+}
+
+async getReportByIdByParent(reportId: string, parentId: string) {
+  if (!parentId) {
+    throw new UnauthorizedException('Invalid parent token');
+  }
+
+  // ✅ report find
+  const report = await this.databaseService.repositories.reportModel.findOne({
+    _id: reportId,
+    parentId: parentId,
+  }).lean();
+
+  if (!report) {
+    throw new BadRequestException('Report not found');
+  }
+
+  let kidName = null;
+  let parentName = null;
+  let driverName = null;
+  let vanName = null;
+
+  // ✅ Kid
+  const kid = await this.databaseService.repositories.KidModel.findById(report.kidId).lean();
+
+  if (kid) {
+    kidName = kid.fullname;
+
+    // ✅ Parent
+    const parent = await this.databaseService.repositories.parentModel.findById(kid.parentId).lean();
+    if (parent) {
+      parentName = parent.fullname;
+    }
+  }
+
+  // ✅ Driver
+  if (report.driverId) {
+    const driver = await this.databaseService.repositories.driverModel.findById(report.driverId).lean();
+    if (driver) {
+      driverName = driver.fullname;
+    }
+   
+   const driverObjectId = new Types.ObjectId(report.driverId);
+    // ✅ Van (driverId se)
+    const van = await this.databaseService.repositories.VanModel.findOne({
+      driverId: driverObjectId,
+    }).lean();
+
+    if (van) {
+      vanName = van.carNumber; // ya jo bhi key hai
+    }
+  }
+
+  return {
+    message: 'Report fetched successfully',
+    data: {
+      ...report,
+      kidName,
+      parentName,
+      driverName,
+      vanName,
+    },
+  };
+}
+
+async getReportByIdByDriver(reportId: string, driverId: string) {
+  if (!driverId) {
+    throw new UnauthorizedException('Invalid driver token');
+  }
+
+  // ✅ report find (driverId se match)
+  const report = await this.databaseService.repositories.reportModel.findOne({
+    _id: reportId,
+    driverId: driverId,
+  }).lean();
+
+  if (!report) {
+    throw new BadRequestException('Report not found');
+  }
+
+  let driverName = null;
+  let vanNumber = null;
+
+  // ✅ Driver
+  const driver = await this.databaseService.repositories.driverModel
+    .findById(report.driverId)
+    .lean();
+
+  if (driver) {
+    driverName = driver.fullname;
+  }
+
+  // ✅ Van (driverId se)
+  const driverObjectId = new Types.ObjectId(report.driverId);
+
+  const van = await this.databaseService.repositories.VanModel.findOne({
+    driverId: driverObjectId,
+  }).lean();
+
+  if (van) {
+    vanNumber = van.carNumber; // field name according to your schema
+  }
+
+  return {
+    message: 'Report fetched successfully',
+    data: {
+      ...report,
+      driverName,
+      vanNumber,
+    },
+  };
+}
 
 }

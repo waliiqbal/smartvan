@@ -17,7 +17,62 @@ export class ReportController {
     return this.reportService.createReport(body, parentId);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+@Get("getParentReports")
+async getParentReports(
+  @Req() req: any,
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 10,
+  @Query('status') status?: string, // optional filter
+) {
+  const parentId = req.user.userId; // token se parent ID
 
+  return this.reportService.getParentReports(
+    parentId,
+    Number(page),
+    Number(limit),
+    status,
+  );
+}
+
+@UseGuards(AuthGuard('jwt'))
+  @Get('getReportByIdByParent/:id')
+  async getReportById(@Param('id') id: string, @Req() req: any) {
+    const parentId = req.user.userId; // token se parentId
+
+    return this.reportService.getReportByIdByParent(id, parentId);
+  }
+
+@UseGuards(AuthGuard('jwt'))
+@Get("getDriverReports")
+async getDriverReports(
+  @Req() req: any,
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 10,
+  @Query('status') status?: string, // optional filter
+) {
+  const driverId = req.user.userId; // token se driver ID
+
+  return this.reportService.getDriverReports(
+    driverId,
+    Number(page),
+    Number(limit),
+    status,
+  );
+}
+
+@UseGuards(AuthGuard('jwt'))
+@Get("getReportByIdByDriver/:id")
+async getReportByIdByDriver
+  (@Param('id') id: string, @Req() req: any)
+ {
+  const driverId = req.user.userId;
+
+  return this.reportService.getReportByIdByDriver(
+    id,
+    driverId,
+  );
+}
 
     @UseGuards(AuthGuard('jwt')) // Token guard
   @Post("addReportByDriver")
@@ -48,7 +103,7 @@ async changeComplaintStatus(
   
   @Body() body: { reportId: string; status: string, adminRemarks?: string },
 ) {
-  const adminId = req.user.userId; // JWT token se adminId milti hai
+  const adminId = req.user.userId;
   const { reportId, status, adminRemarks } = body;
 
   

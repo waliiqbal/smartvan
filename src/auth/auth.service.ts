@@ -357,42 +357,161 @@ async getProfile(userId: string, userType: string) {
 }
 
 
-async socialLogin(authProvider: string, token: string, userType: string, userName: string, email: string, socialId: string, image: string, fcmToken: string) {
+async socialLogin(
+  authProvider: string,
+  token: string,
+  userType: string,
+  userName: string,
+  email: string,
+  socialId: string,
+  image: string,
+  fcmToken: string,
+) {
   try {
+    console.log("authProvider:", authProvider);
+    console.log("token:", token);
+    console.log("userType:", userType);
+    console.log("userName:", userName);
+    console.log("email:", email);
+    console.log("socialId:", socialId);
+    console.log("image:", image);
+    console.log("fcmToken:", fcmToken);
 
-  console.log("authProvider:", authProvider);
-  console.log("token:", token);
-  console.log("userType:", userType);
-  console.log("userName:", userName);
-  console.log("email:", email);
-  console.log("socialId:", socialId);
-  console.log("image:", image);
-  console.log("fcmToken:", fcmToken);
-
-
-    if(!userType || !socialId){
-       throw new UnauthorizedException('userType and socialId must be given');
+    if (!userType || !socialId || !email) {
+      throw new UnauthorizedException(
+        'userType, email and socialId must be given',
+      );
     }
+
     const model = this.getUserModel(userType);
 
-  
-    const userWithPassword = await model.findOne({
-      email,
-      password: { $ne: null },
+    /**
+     * Pehle user ko providerId ya email se find karo.
+     * Kyun?
+     * - providerId se existing social user milega
+     * - email se deleted account ya old account milega
+     */
+    let user = await model.findOne({
+      $or: [
+        { providerId: socialId },
+        { email: email },
+      ],
     });
 
-    if (userWithPassword) {
-      throw new UnauthorizedException('This email is already registered with password. Use normal login.');
+    /**
+     * CASE 1:
+     * Agar user mila aur account soft deleted hai,
+     * to same account restore kar do.
+     */
+    if (user && user.isDelete === true) {
+      user.isDelete = false;
+      user.isVerified = true;
+      user.providerId = socialId;
+      user.authProvider = authProvider;
+      user.userType = userType;
+
+      if (userName) {
+        user.fullname = userName;
+      }
+
+      if (image) {
+        user.image = image;
+      }
+
+      if (fcmToken) {
+        user.fcmToken = fcmToken;
+      }
+
+    
+
+      await user.save();
+
+      const payload = {
+        sub: user._id,
+        email: user.email,
+        userType: user.userType,
+      };
+
+      const jwtToken = this.jwtService.sign(payload, {
+        expiresIn: '1h',
+      });
+
+      return {
+        message: 'Account restored and social login successful',
+        data: {
+          token: jwtToken,
+          user,
+        },
+      };
     }
 
-   
-    let user = await model.findOne({
-      providerId: socialId
-    });
+    /**
+     * CASE 2:
+     * Agar same email ka active password account hai,
+     * to social login allow nahi karna.
+     */
+    if (user && user.password && user.isDelete !== true) {
+      throw new UnauthorizedException(
+        'This email is already registered with password. Use normal login.',
+      );
+    }
 
-    console.log("eeeeeeeeeeeee", email, socialId, user);
+    /**
+     * CASE 3:
+     * Agar user already social login se exist karta hai,
+     * to latest details update kar do.
+     */
+    if (user) {
+      let shouldSave = false;
 
-  
+      if (user.providerId !== socialId) {
+        user.providerId = socialId;
+        shouldSave = true;
+      }
+
+      if (user.authProvider !== authProvider) {
+        user.authProvider = authProvider;
+        shouldSave = true;
+      }
+
+      if (userName && user.fullname !== userName) {
+        user.fullname = userName;
+        shouldSave = true;
+      }
+
+      if (image && user.image !== image) {
+        user.image = image;
+        shouldSave = true;
+      }
+
+      if (user.isVerified !== true) {
+        user.isVerified = true;
+        shouldSave = true;
+      }
+
+      if (user.isDelete !== false) {
+        user.isDelete = false;
+        shouldSave = true;
+      }
+
+      if (fcmToken && user.fcmToken !== fcmToken) {
+        user.fcmToken = fcmToken;
+        shouldSave = true;
+      }
+
+    
+      shouldSave = true;
+
+      if (shouldSave) {
+        await user.save();
+      }
+    }
+
+    /**
+     * CASE 4:
+     * Agar user bilkul exist nahi karta,
+     * to new social account create karo.
+     */
     if (!user) {
       user = new model({
         fullname: userName,
@@ -401,32 +520,13 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
         authProvider,
         userType,
         isVerified: true,
-        image: image
+        isDelete: false,
+        image: image || null,
+        fcmToken: fcmToken || null,
       });
 
       await user.save();
     }
-
-    if (user.isDelete === true) {
-      throw new UnauthorizedException(
-        'Your account is deleted, you cannot login with social login',
-      );
-    }
-
-    if (fcmToken) {
-      if (!user.fcmToken) {
-  
-        user.fcmToken = fcmToken;
-        await user.save();
-      } else if (user.fcmToken !== fcmToken) {
-       
-        user.fcmToken = fcmToken;
-        await user.save();
-      }
-   
-    }
-
-
 
     const payload = {
       sub: user._id,
@@ -434,15 +534,15 @@ async socialLogin(authProvider: string, token: string, userType: string, userNam
       userType: user.userType,
     };
 
-    
-
-    const jwtToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const jwtToken = this.jwtService.sign(payload, {
+      expiresIn: '1h',
+    });
 
     return {
       message: 'Social login successful',
       data: {
-      token: jwtToken,
-      user: user
+        token: jwtToken,
+        user,
       },
     };
   } catch (error) {

@@ -37,6 +37,9 @@ export class DatabaseService {
     
      @InjectModel(schema.Invoice.name)
     private invoiceModel: Model<schema.FAQDocument>,
+
+      @InjectModel(schema.Support.name) 
+    private SupportModel: Model<schema.SupportDocument>,
      ) {}
      get repositories() {
     return {
@@ -52,7 +55,8 @@ export class DatabaseService {
       FAQModel: this.FAQModel,
       routeModel: this.routeModel,
       invoiceModel: this.invoiceModel,
-      PromotionBannerModel: this.PromotionBannerModel
+      PromotionBannerModel: this.PromotionBannerModel,
+      supportModel: this.SupportModel
         };
   }
 }

@@ -11,3 +11,4 @@ export { FAQ, FAQDocument, FAQSchema } from '../report/faq.schema';
 export { Route, RouteDocument, RouteSchema } from '../route/route.schema'
 export { Invoice, InvoiceDocument, InvoiceSchema } from '../invoice/invoice.schema'
 export { PromotionBanner, PromotionBannerDocument, PromotionBannerSchema } from '../promotion-banner/promotion-banner.schema'
+export { Support, SupportDocument, SupportSchema } from '../alert/support.schema';

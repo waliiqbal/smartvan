@@ -628,6 +628,75 @@ async getDriverNotificationsByParent(parentId: string) {
     };
   }
 
+async addSupportLink(body: any, adminId: string) {
+  try {
+    const { type, title, value, url, status } = body;
 
+    // admin validation
+    const adminObjectId = new Types.ObjectId(adminId);
+
+    const admin = await this.databaseService.repositories.AdminModel.findById(
+      adminObjectId,
+    );
+
+    if (!admin) {
+      throw new UnauthorizedException('Invalid admin');
+    }
+
+    // 🧠 Create Support Link (optional fields handled safely)
+    const support = new this.databaseService.repositories.supportModel({
+      type,
+      title: title || null,
+      value: value || null,
+      url: url || null,
+      status: status || 'active',
+      isDelete: false,
+    });
+
+    const saved = await support.save();
+
+    return {
+      message: 'Support link added successfully',
+      data: saved,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+async getSupportLinks() {
+  try {
+    const links = await this.databaseService.repositories.supportModel
+      .find({ isDelete: false })
+      .sort({ createdAt: -1 }); // newest first
+
+    return {
+      message: 'Support links fetched successfully',
+      data: links,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+async deleteSupportLink(id: string) {
+  try {
+    const support = await this.databaseService.repositories.supportModel.findById(id);
+
+    if (!support) {
+      throw new NotFoundException('Support link not found');
+    }
+
+    // ❌ Permanent delete
+    await this.databaseService.repositories.supportModel.findByIdAndDelete(id);
+
+    return {
+      message: 'Support link deleted permanently',
+      data: null,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
 
 }

@@ -521,7 +521,23 @@ async getAboutSmartVan(@Req() req: any) {
   };
 }
 
+@UseGuards(AuthGuard('jwt'))
+@Post('addSupportLink')
+async addSupportLink(@Body() body: any, @Req() req: any) {
+  const adminId = req.user.userId;
+  return this.AlertService.addSupportLink(body, adminId);
+}
 
+@UseGuards(AuthGuard('jwt'))
+@Get('getSupportLinks')
+async getSupportLinks() {
+  return this.AlertService.getSupportLinks();
+}
+@UseGuards(AuthGuard('jwt'))
+@Post('deleteSupportLink')
+async deleteSupportLink(@Body('id') id: string) {
+  return this.AlertService.deleteSupportLink(id);
+}
 
 }
 

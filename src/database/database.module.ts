@@ -28,6 +28,7 @@ import { DatabaseService } from './databaseservice'
            { name: schema.Route.name, schema: schema.RouteSchema },
            { name: schema.Invoice.name, schema: schema.InvoiceSchema },
            { name: schema.PromotionBanner.name, schema: schema.PromotionBannerSchema },
+            { name: schema.Support.name, schema: schema.SupportSchema },
            
     ]),
   ],
